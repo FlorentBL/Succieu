@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
+import { associationsList } from "@/lib/associations";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Associations et professionnels",
   description:
-    "Associations sportives et vie associative, professionnels et services de proximité à Succieu.",
+    "Associations sportives et culturelles, professionnels et services de proximité à Succieu.",
 };
 
 export default function AssociationsPage() {
@@ -22,42 +23,48 @@ export default function AssociationsPage() {
       </p>
 
       <div className="mt-10 space-y-10">
-        <Section id="asn" title="Sport et Nature Succieu (ASN)">
-          <Card>
-            <p className="text-ink-muted">
-              Cardio, course à pied, marche nordique. Sorties famille le dimanche.
-            </p>
-            <ul className="mt-3 text-sm text-ink-muted">
-              <li>
-                <a
-                  href="mailto:sportnaturesuccieu@gmail.com"
-                  className="text-sage-dark underline"
-                >
-                  sportnaturesuccieu@gmail.com
-                </a>
-              </li>
-              <li>Facebook : SportNatureSuccieu</li>
-              <li>
-                <a
-                  href="https://asn.sportsregions.fr"
-                  rel="noopener noreferrer"
-                  className="text-sage-dark underline"
-                >
-                  asn.sportsregions.fr
-                </a>
-              </li>
-            </ul>
-          </Card>
-        </Section>
-
-        <Section id="asstf" title="AS Succieu Terres Froides (ASSTF)">
-          <Card>
-            <p className="text-ink-muted">
-              Rugby depuis 1979. Environ 250 licenciés. Catégories baby à seniors,
-              M6 à M19, rugby à V. Les « Blacks ».
-            </p>
-          </Card>
-        </Section>
+        {associationsList.map((assoc) => (
+          <Section key={assoc.id} id={assoc.id} title={assoc.title}>
+            <Card>
+              <div className="space-y-3">
+                {assoc.description.map((p, i) => (
+                  <p key={`${assoc.id}-p-${i}`} className="text-ink-muted">
+                    {p}
+                  </p>
+                ))}
+              </div>
+              {assoc.contacts?.length ? (
+                <ul className="mt-4 space-y-2 text-sm text-ink-muted">
+                  {assoc.contacts.map((c, i) => (
+                    <li key={`${assoc.id}-c-${i}`}>
+                      {c.kind === "text" ? (
+                        c.text
+                      ) : (
+                        <>
+                          {c.label}
+                          {" : "}
+                          <a
+                            href={c.href}
+                            rel={
+                              c.href.startsWith("mailto:")
+                                ? undefined
+                                : "noopener noreferrer"
+                            }
+                            className="text-sage-dark underline"
+                          >
+                            {c.href.startsWith("mailto:")
+                              ? c.href.replace(/^mailto:/, "")
+                              : c.href.replace(/^https?:\/\//i, "")}
+                          </a>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </Card>
+          </Section>
+        ))}
 
         <Section id="professionnels" title="Professionnels et services de proximité">
           <Card>
