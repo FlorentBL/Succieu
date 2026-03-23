@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Charte raffinée « commune nature » : pierre, encre, bronze discret — institutionnel sans être froid */
+/* Charte « commune nature » + rythme vertical généreux (UI/UX) */
 :root {
   --color-canvas: #f4f1eb;
   --color-surface: #fffcfa;
@@ -18,6 +18,7 @@
   --color-border-subtle: rgba(26, 22, 20, 0.09);
   --color-accent: #5c6f5a;
   --color-focus: #1e40af;
+  --space-section-y: clamp(3.5rem, 6vw, 6rem);
 }
 
 @theme inline {
@@ -45,6 +46,21 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-feature-settings: "kern" 1, "liga" 1;
+  line-height: 1.6;
+}
+
+/* Blocs texte longs : lisibilité */
+.prose-site {
+  line-height: 1.75;
+}
+
+.prose-site p {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose-site p:first-child {
+  margin-top: 0;
 }
 
 .prose-site ul {
@@ -55,8 +71,8 @@ body {
 }
 
 .prose-site li {
-  margin-top: 0.25rem;
-  margin-bottom: 0.25rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
 }
 
 .prose-site a {

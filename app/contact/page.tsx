@@ -1,16 +1,42 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
-import { NoticeMairie } from "@/components/ui/NoticeMairie";
+import { MairieOpeningHours } from "@/components/ui/MairieOpeningHours";
 import { Section } from "@/components/ui/Section";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Contact",
   description:
-    "Coordonnées de la mairie de Succieu : téléphone, e-mails des services, urgence.",
+    "Coordonnées et horaires de la mairie de Succieu : téléphone, e-mails des services, urgence.",
 };
 
 function ContactJsonLd() {
+  const openingHoursSpecification = [
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: "https://schema.org/Tuesday",
+      opens: "08:00",
+      closes: "12:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: "https://schema.org/Thursday",
+      opens: "08:00",
+      closes: "12:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: "https://schema.org/Friday",
+      opens: "14:00",
+      closes: "18:00",
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: "https://schema.org/Saturday",
+      opens: "08:30",
+      closes: "12:00",
+    },
+  ];
   const data = {
     "@context": "https://schema.org",
     "@type": "GovernmentOrganization",
@@ -18,11 +44,14 @@ function ContactJsonLd() {
     telephone: siteConfig.phoneTel.replace("tel:", ""),
     address: {
       "@type": "PostalAddress",
+      streetAddress: siteConfig.streetAddress,
       addressLocality: siteConfig.city,
       postalCode: siteConfig.postalCode,
       addressCountry: siteConfig.country,
     },
     url: "https://www.succieu.fr/contact",
+    email: siteConfig.emails.mairie,
+    openingHoursSpecification,
   };
   return (
     <script
@@ -44,15 +73,17 @@ export default function ContactPage() {
           Pour joindre la mairie et les services municipaux.
         </p>
 
-        <NoticeMairie>
-          Adresse exacte de la mairie et horaires d’ouverture à confirmer avant
-          diffusion large.
-        </NoticeMairie>
-
         <div className="mt-8 space-y-10">
           <Section title="Mairie" id="mairie">
             <Card>
               <p className="text-ink-muted">
+                <strong className="text-ink">Adresse :</strong>
+                <br />
+                {siteConfig.streetAddress}
+                <br />
+                {siteConfig.postalCode} {siteConfig.city}
+              </p>
+              <p className="mt-4 text-ink-muted">
                 <strong className="text-ink">Téléphone :</strong>{" "}
                 <a
                   className="text-sage-dark underline underline-offset-2 hover:text-moss-dark"
@@ -61,9 +92,21 @@ export default function ContactPage() {
                   {siteConfig.phone}
                 </a>
               </p>
-              <p className="mt-2 text-sm text-ink-subtle">
-                E-mail général : à communiquer par la mairie si souhaité.
+              <p className="mt-2 text-ink-muted">
+                <strong className="text-ink">E-mail :</strong>{" "}
+                <a
+                  className="text-sage-dark underline underline-offset-2 hover:text-moss-dark"
+                  href={`mailto:${siteConfig.emails.mairie}`}
+                >
+                  {siteConfig.emails.mairie}
+                </a>
               </p>
+              <div className="mt-6 border-t border-border-subtle pt-6">
+                <p className="text-sm font-semibold text-ink">
+                  Horaires d’accueil
+                </p>
+                <MairieOpeningHours className="mt-3" />
+              </div>
             </Card>
           </Section>
 

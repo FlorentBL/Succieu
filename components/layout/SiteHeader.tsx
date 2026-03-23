@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { SiteLogo } from "@/components/layout/SiteLogo";
 import { mainNav } from "@/lib/site";
 
@@ -18,9 +18,9 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`rounded-full px-3.5 py-2 text-sm font-medium tracking-wide transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)] ${
+      className={`relative whitespace-nowrap rounded-md px-2.5 py-2 text-[0.8125rem] font-medium leading-none tracking-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)] xl:text-sm ${
         current
-          ? "bg-ink text-surface shadow-sm"
+          ? "text-moss-dark after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-[3px] after:rounded-full after:bg-moss"
           : "text-ink-muted hover:bg-canvas hover:text-ink"
       }`}
       aria-current={current ? "page" : undefined}
@@ -33,15 +33,21 @@ function NavLink({
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  /** Un seul sous-menu desktop ouvert à la fois (les `<details>` natifs restent tous ouverts sinon). */
+  const [openFlyoutHref, setOpenFlyoutHref] = useState<string | null>(null);
   const panelId = useId();
 
+  useEffect(() => {
+    setOpenFlyoutHref(null);
+  }, [pathname]);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border-subtle bg-surface/90 shadow-[0_8px_30px_-20px_rgba(26,22,20,0.25)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/80">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+    <header className="sticky top-0 z-50 border-b border-border-subtle bg-surface/92 shadow-[0_10px_40px_-24px_rgba(26,22,20,0.28)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/85">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4 lg:gap-4 lg:px-8">
         <SiteLogo variant="header" />
 
-        <nav className="hidden lg:block" aria-label="Navigation principale">
-          <ul className="flex flex-wrap items-center justify-end gap-1">
+        <nav className="hidden min-w-0 flex-1 justify-end xl:flex" aria-label="Navigation principale">
+          <ul className="flex max-w-full flex-nowrap items-center justify-end gap-0.5 sm:gap-1">
             {mainNav.map((item) => {
               const isHome = item.href === "/";
               const active =
@@ -49,14 +55,37 @@ export function SiteHeader() {
                   ? pathname === "/"
                   : pathname === item.href ||
                     pathname.startsWith(`${item.href}/`);
+              const sectionActive =
+                Boolean(item.children) &&
+                (pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`));
               return (
-                <li key={item.href} className="relative">
+                <li key={item.href} className="relative shrink-0">
                   {item.children ? (
-                    <details className="group">
-                      <summary className="list-none cursor-pointer rounded-full px-3.5 py-2 text-sm font-medium tracking-wide text-ink-muted hover:bg-canvas hover:text-ink [&::-webkit-details-marker]:hidden">
-                        <span className="inline-flex items-center gap-1">
+                    <details
+                      className="group"
+                      open={openFlyoutHref === item.href}
+                      onToggle={(e) => {
+                        const el = e.currentTarget;
+                        if (el.open) {
+                          setOpenFlyoutHref(item.href);
+                        } else {
+                          setOpenFlyoutHref((cur) =>
+                            cur === item.href ? null : cur,
+                          );
+                        }
+                      }}
+                    >
+                      <summary
+                        className={`relative list-none cursor-pointer whitespace-nowrap rounded-md px-2.5 py-2 text-[0.8125rem] font-medium leading-none tracking-tight transition-colors xl:text-sm [&::-webkit-details-marker]:hidden ${
+                          sectionActive
+                            ? "text-moss-dark after:pointer-events-none after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-[3px] after:rounded-full after:bg-moss"
+                            : "text-ink-muted hover:bg-canvas hover:text-ink"
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-0.5">
                           {item.label}
-                          <span className="text-xs" aria-hidden>
+                          <span className="text-[0.65rem] opacity-70" aria-hidden>
                             ▾
                           </span>
                         </span>
@@ -95,7 +124,7 @@ export function SiteHeader() {
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-border-subtle bg-canvas p-2.5 text-ink lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+          className="inline-flex items-center justify-center rounded-full border border-border-subtle bg-canvas p-2.5 text-ink xl:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
@@ -110,9 +139,9 @@ export function SiteHeader() {
       {open ? (
         <div
           id={panelId}
-          className="border-t border-border-subtle bg-surface lg:hidden"
+          className="border-t border-border-subtle bg-surface xl:hidden"
         >
-          <nav className="mx-auto max-w-6xl px-4 py-4" aria-label="Navigation mobile">
+          <nav className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8" aria-label="Navigation mobile et tablette">
             <ul className="flex flex-col gap-1">
               {mainNav.map((item) => {
                 const isHome = item.href === "/";

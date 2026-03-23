@@ -1,18 +1,23 @@
 import Link from "next/link";
 import { SiteLogo } from "@/components/layout/SiteLogo";
+import { MairieOpeningHours } from "@/components/ui/MairieOpeningHours";
 import { siteConfig } from "@/lib/site";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
     <footer className="border-t border-brass/25 bg-[#141210] text-stone-200">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8 lg:py-16">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.1fr_1fr_1fr]">
           <div className="space-y-4">
             <SiteLogo variant="footer" />
             <p className="text-sm leading-relaxed text-stone-400">
-              {siteConfig.tagline} — {siteConfig.postalCode} {siteConfig.city},{" "}
-              {siteConfig.country}
+              {siteConfig.tagline}
+            </p>
+            <p className="text-sm leading-relaxed text-stone-500">
+              {siteConfig.streetAddress}
+              <br />
+              {siteConfig.postalCode} {siteConfig.city}, {siteConfig.country}
             </p>
           </div>
           <div>
@@ -27,9 +32,15 @@ export function SiteFooter() {
                 {siteConfig.phone}
               </a>
             </p>
-            <p className="mt-2 text-sm text-stone-500">
-              Horaires d’accueil : à confirmer auprès de la mairie.
+            <p className="mt-2 text-sm">
+              <a
+                href={`mailto:${siteConfig.emails.mairie}`}
+                className="text-stone-300 underline decoration-stone-700 underline-offset-4 transition hover:text-white hover:decoration-brass-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                {siteConfig.emails.mairie}
+              </a>
             </p>
+            <MairieOpeningHours variant="footer" className="mt-4" />
           </div>
           <div>
             <h2 className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-brass-muted">

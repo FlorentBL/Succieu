@@ -45,10 +45,6 @@ export default function VivrePage() {
               vendredi matin (sortir le jeudi soir).
             </li>
             <li>
-              <strong className="text-ink">Sacs jaunes</strong> : tous les 15 jours,
-              mardi en semaine paire.
-            </li>
-            <li>
               <strong className="text-ink">Points d’apport volontaire</strong> : 2
               sites — village et stade du Gapillon (verre uniquement).
             </li>

@@ -43,16 +43,6 @@ export default function CcasPage() {
           <p className="text-ink-muted">
             <strong className="text-ink">Président :</strong> Hervé CASSE
           </p>
-          <p className="mt-3 text-ink-muted">
-            <strong className="text-ink">Membres du conseil municipal :</strong>{" "}
-            Ludovic DUPOUY, Yoann SEGURA, Julia SORLIN, Julien VEYET, Guillaume
-            VIAL
-          </p>
-          <p className="mt-3 text-ink-muted">
-            <strong className="text-ink">Membres extérieurs :</strong> Elisabeth
-            AEGERTER, Denise BARRAL, Geneviève BRON, Jean THUILLER
-            (vice-président), Evelyne VEYET
-          </p>
         </Section>
 
         <Section id="contact-ccas" title="Contact">

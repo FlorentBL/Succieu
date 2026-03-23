@@ -14,7 +14,6 @@ const paths = [
   "/ma-mairie/ccas",
   "/ma-mairie/identite",
   "/petite-enfance-ecole",
-  "/participation",
   "/associations",
 ];
 

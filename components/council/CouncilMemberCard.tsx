@@ -22,14 +22,14 @@ export function CouncilMemberCard({
         name={member.line}
         priority={priority}
       />
-      <div className="flex flex-1 flex-col border-t border-border-subtle bg-gradient-to-b from-surface to-canvas/30 px-5 py-4">
+      <div className="flex flex-1 flex-col border-t border-border-subtle bg-gradient-to-b from-surface to-canvas/35 px-6 py-5 sm:px-7 sm:py-6">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-brass">
           {member.role}
         </p>
-        <h3 className="font-display mt-1.5 text-lg font-semibold leading-snug text-ink sm:text-xl">
+        <h3 className="font-display mt-2 text-lg font-semibold leading-snug text-ink sm:text-xl">
           {member.line}
         </h3>
-        <p className="mt-1 text-xs text-ink-subtle">{member.civility}</p>
+        <p className="mt-2 text-xs text-ink-subtle">{member.civility}</p>
       </div>
     </article>
   );
