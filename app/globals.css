@@ -1,26 +1,71 @@
 @import "tailwindcss";
 
+/* Charte raffinée « commune nature » : pierre, encre, bronze discret — institutionnel sans être froid */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-canvas: #f4f1eb;
+  --color-surface: #fffcfa;
+  --color-ink: #1a1614;
+  --color-ink-muted: #3f3a36;
+  --color-ink-subtle: #6e6860;
+  --color-moss: #2d4a32;
+  --color-moss-dark: #1f3424;
+  --color-sage: #4a6b5c;
+  --color-sage-dark: #3d5a4d;
+  --color-sky-territory: #5a6e78;
+  --color-stone-warm: #e3ddd2;
+  --color-brass: #8f7e5f;
+  --color-brass-muted: #b5a487;
+  --color-border-subtle: rgba(26, 22, 20, 0.09);
+  --color-accent: #5c6f5a;
+  --color-focus: #1e40af;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-subtle: var(--color-ink-subtle);
+  --color-moss: var(--color-moss);
+  --color-moss-dark: var(--color-moss-dark);
+  --color-sage: var(--color-sage);
+  --color-sage-dark: var(--color-sage-dark);
+  --color-sky-territory: var(--color-sky-territory);
+  --color-stone-warm: var(--color-stone-warm);
+  --color-brass: var(--color-brass);
+  --color-brass-muted: var(--color-brass-muted);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-accent: var(--color-accent);
+  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, "Times New Roman", serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+.prose-site ul {
+  list-style-type: disc;
+  padding-left: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose-site li {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.prose-site a {
+  color: var(--color-sage-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.prose-site a:hover {
+  color: var(--color-moss-dark);
 }

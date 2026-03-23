@@ -1,0 +1,135 @@
+import type { Metadata } from "next";
+import { Card } from "@/components/ui/Card";
+import { NoticeMairie } from "@/components/ui/NoticeMairie";
+import { Section } from "@/components/ui/Section";
+import { siteConfig } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description:
+    "Coordonnées de la mairie de Succieu : téléphone, e-mails des services, urgence.",
+};
+
+function ContactJsonLd() {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "GovernmentOrganization",
+    name: siteConfig.name,
+    telephone: siteConfig.phoneTel.replace("tel:", ""),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: siteConfig.city,
+      postalCode: siteConfig.postalCode,
+      addressCountry: siteConfig.country,
+    },
+    url: "https://www.succieu.fr/contact",
+  };
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+    />
+  );
+}
+
+export default function ContactPage() {
+  return (
+    <>
+      <ContactJsonLd />
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+        <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
+          Contact
+        </h1>
+        <p className="mt-3 text-lg text-ink-muted">
+          Pour joindre la mairie et les services municipaux.
+        </p>
+
+        <NoticeMairie>
+          Adresse exacte de la mairie et horaires d’ouverture à confirmer avant
+          diffusion large.
+        </NoticeMairie>
+
+        <div className="mt-8 space-y-10">
+          <Section title="Mairie" id="mairie">
+            <Card>
+              <p className="text-ink-muted">
+                <strong className="text-ink">Téléphone :</strong>{" "}
+                <a
+                  className="text-sage-dark underline underline-offset-2 hover:text-moss-dark"
+                  href={siteConfig.phoneTel}
+                >
+                  {siteConfig.phone}
+                </a>
+              </p>
+              <p className="mt-2 text-sm text-ink-subtle">
+                E-mail général : à communiquer par la mairie si souhaité.
+              </p>
+            </Card>
+          </Section>
+
+          <Section title="Services" id="services">
+            <div className="space-y-4">
+              <Card>
+                <h3 className="font-semibold text-ink">Urbanisme</h3>
+                <p className="mt-1 text-ink-muted">
+                  {siteConfig.phone} —{" "}
+                  <a
+                    className="text-sage-dark underline"
+                    href={`mailto:${siteConfig.emails.urbanisme}`}
+                  >
+                    {siteConfig.emails.urbanisme}
+                  </a>
+                </p>
+              </Card>
+              <Card>
+                <h3 className="font-semibold text-ink">CCAS</h3>
+                <p className="mt-1 text-ink-muted">
+                  {siteConfig.phone} —{" "}
+                  <a
+                    className="text-sage-dark underline"
+                    href={`mailto:${siteConfig.emails.ccas}`}
+                  >
+                    {siteConfig.emails.ccas}
+                  </a>
+                </p>
+              </Card>
+              <Card>
+                <h3 className="font-semibold text-ink">Périscolaire</h3>
+                <p className="mt-1 text-ink-muted">
+                  {siteConfig.phone} —{" "}
+                  <a
+                    className="text-sage-dark underline"
+                    href={`mailto:${siteConfig.emails.periscolaire}`}
+                  >
+                    {siteConfig.emails.periscolaire}
+                  </a>
+                </p>
+              </Card>
+              <Card>
+                <h3 className="font-semibold text-ink">Enquête publique PLU</h3>
+                <p className="mt-1 text-ink-muted">
+                  <a
+                    className="text-sage-dark underline"
+                    href={`mailto:${siteConfig.emails.enquetePlu}`}
+                  >
+                    {siteConfig.emails.enquetePlu}
+                  </a>
+                </p>
+              </Card>
+            </div>
+          </Section>
+
+          <Section title="Urgence" id="urgence">
+            <p className="text-ink-muted">
+              En cas d’urgence vitale, composez le{" "}
+              <strong className="text-ink">15</strong> (SAMU), le{" "}
+              <strong className="text-ink">17</strong> (police / gendarmerie) ou le{" "}
+              <strong className="text-ink">18</strong> (pompiers), selon la
+              situation.
+            </p>
+          </Section>
+        </div>
+      </div>
+    </>
+  );
+}
