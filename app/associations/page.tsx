@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { associationsList } from "@/lib/associations";
+import { phoneToTelHref, professionalsList } from "@/lib/professionnels";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -67,30 +68,96 @@ export default function AssociationsPage() {
         ))}
 
         <Section id="professionnels" title="Professionnels et services de proximité">
-          <Card>
-            <p className="text-ink-muted">
-              Commerces, artisans, professions libérales et autres services complètent
-              l’offre locale. Les effectifs restant limités, cette rubrique tient lieu
-              d’information générale plutôt qu’annuaire exhaustif.
-            </p>
-            <p className="mt-4 text-ink-muted">
-              Pour toute correction, ajout ou retrait :{" "}
-              <Link
-                href="/contact"
-                className="font-medium text-sage-dark underline underline-offset-2"
-              >
-                page Contact
-              </Link>{" "}
-              ou mairie au{" "}
-              <a
-                href={siteConfig.phoneTel}
-                className="font-medium text-sage-dark underline underline-offset-2"
-              >
-                {siteConfig.phone}
-              </a>
-              .
-            </p>
-          </Card>
+          <div className="space-y-6">
+            <div className="space-y-3 text-ink-muted">
+              <p>
+                Commerces, artisans et services repérés sur la commune, par ordre
+                alphabétique. Les fiches sont données à titre indicatif ; seules les
+                informations communiquées par les professionnels ou visibles sur leurs
+                supports officiels font foi.
+              </p>
+              <p className="text-sm text-ink-subtle">
+                Sous réserve de modifications — merci de signaler toute erreur à la
+                mairie.
+              </p>
+            </div>
+
+            <ul className="space-y-5">
+              {professionalsList.map((pro) => (
+                <li key={pro.id}>
+                  <Card>
+                    <h3 className="font-display text-lg font-semibold text-ink">
+                      {pro.name}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+                      {pro.serviceDescription}
+                    </p>
+                    {pro.addressLine ? (
+                      <p className="mt-3 text-sm text-ink-muted">
+                        <strong className="text-ink">Adresse :</strong> {pro.addressLine}
+                      </p>
+                    ) : null}
+                    <ul className="mt-3 space-y-1.5 text-sm text-ink-muted">
+                      {pro.phone ? (
+                        <li>
+                          <strong className="text-ink">Téléphone :</strong>{" "}
+                          <a
+                            href={phoneToTelHref(pro.phone)}
+                            className="text-sage-dark underline underline-offset-2"
+                          >
+                            {pro.phone}
+                          </a>
+                        </li>
+                      ) : null}
+                      {pro.website ? (
+                        <li>
+                          <strong className="text-ink">Site web :</strong>{" "}
+                          <a
+                            href={pro.website}
+                            rel="noopener noreferrer"
+                            className="text-sage-dark underline underline-offset-2"
+                          >
+                            {pro.website.replace(/^https?:\/\//i, "")}
+                          </a>
+                        </li>
+                      ) : null}
+                      {pro.mapsUrl ? (
+                        <li>
+                          <a
+                            href={pro.mapsUrl}
+                            rel="noopener noreferrer"
+                            className="font-medium text-sage-dark underline underline-offset-2"
+                          >
+                            Voir sur Google Maps
+                          </a>
+                        </li>
+                      ) : null}
+                    </ul>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+
+            <Card>
+              <p className="text-sm text-ink-muted">
+                Pour toute correction, ajout ou retrait :{" "}
+                <Link
+                  href="/contact"
+                  className="font-medium text-sage-dark underline underline-offset-2"
+                >
+                  page Contact
+                </Link>{" "}
+                ou mairie au{" "}
+                <a
+                  href={siteConfig.phoneTel}
+                  className="font-medium text-sage-dark underline underline-offset-2"
+                >
+                  {siteConfig.phone}
+                </a>
+                .
+              </p>
+            </Card>
+          </div>
         </Section>
       </div>
     </div>
