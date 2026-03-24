@@ -3,6 +3,7 @@
  *
  * Photos : fichiers réels dans `public/photos/`. Le champ `photoFile` doit
  * correspondre **exactement** au nom sur le disque (casse, espaces, extension).
+ * Nouveaux fichiers : les exporter légers ou lancer `npm run optimize:photos`.
  */
 
 export type CouncilCategory = "executif" | "conseiller";
@@ -164,7 +165,7 @@ export const councilMembers: CouncilMember[] = [
   },
   {
     order: 15,
-    photoFile: "Dylan Tabaret.png",
+    photoFile: "Dylan Tabaret.jpg",
     civility: "M.",
     firstName: "Dylan",
     lastName: "TABARET",
