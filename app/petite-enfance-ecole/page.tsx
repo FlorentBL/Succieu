@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { NoticeMairie } from "@/components/ui/NoticeMairie";
+import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { siteConfig } from "@/lib/site";
 
@@ -16,13 +16,11 @@ export default function PetiteEnfancePage() {
         Petite enfance & école
       </h1>
       <p className="mt-3 text-lg text-ink-muted">
-        Accueil du jeune enfant, école et temps périscolaires.
+        Accueil du jeune enfant, école et temps périscolaires. Les
+        communications du conseil d’école et les documents pédagogiques à jour
+        sont transmis par l’équipe enseignante ou l’école (courriel, cahier,
+        outil numérique).
       </p>
-
-      <NoticeMairie>
-        Compte-rendus conseil d&apos;école et documents pédagogiques : anciennes
-        dates sur l’ancien site — à mettre à jour avec l’équipe enseignante.
-      </NoticeMairie>
 
       <div className="mt-10 space-y-10 prose-site">
         <Section id="ribambelle" title="Halte-garderie itinérante CAPI « La Ribambelle »">
@@ -54,10 +52,21 @@ export default function PetiteEnfancePage() {
               Maillet — 06 75 08 45 05
             </li>
           </ul>
-          <NoticeMairie>
-            Liste des assistantes maternelles : confirmer les disponibilités et
-            coordonnées auprès de la mairie ou du relais petite enfance.
-          </NoticeMairie>
+          <Card className="mt-4">
+            <p className="text-sm text-ink-muted">
+              Pour une liste d’assistantes maternelles agréées, disponibilités
+              et aides :{" "}
+              <a
+                href={siteConfig.urls.cafIsere}
+                rel="noopener noreferrer"
+                className="font-medium text-sage-dark underline"
+              >
+                CAF de l’Isère
+              </a>{" "}
+              et la mairie (service petite enfance). Les coordonnées ci-dessus
+              sont données à titre indicatif.
+            </p>
+          </Card>
         </Section>
 
         <Section id="periscolaire" title="Périscolaire">

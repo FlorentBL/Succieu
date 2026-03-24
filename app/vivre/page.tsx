@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
-import { NoticeMairie } from "@/components/ui/NoticeMairie";
 import { Section } from "@/components/ui/Section";
 import { siteConfig } from "@/lib/site";
 
@@ -18,12 +17,9 @@ export default function VivrePage() {
       </h1>
       <p className="mt-3 text-lg text-ink-muted">
         Services du quotidien : marché, déchets, déplacements et solidarité.
+        Pour les transports, les horaires et fréquences à jour sont ceux publiés
+        par la Région et chaque opérateur (liens dans la section Mobilité).
       </p>
-
-      <NoticeMairie>
-        Horaires de bus « Vie pratique » et fréquences : vérifier auprès des
-        opérateurs — certaines fiches anciennes sont obsolètes.
-      </NoticeMairie>
 
       <div className="mt-10 space-y-12 prose-site">
         <Section
@@ -64,29 +60,43 @@ export default function VivrePage() {
           </Card>
         </Section>
 
-        <Section id="decheteries" title="Déchèteries proches">
-          <ul className="text-ink-muted">
-            <li>
-              <strong className="text-ink">Châteauvilain</strong> : mer 17h30–19h30
-              / ven 15h30–18h30 / sam 13h30–18h
-            </li>
-            <li>
-              <strong className="text-ink">Nivolas-Vermelle</strong> : mer–jeu–ven
-              9h–12h / 14h–18h / sam 9h–12h / 14h–18h
-            </li>
-            <li>
-              <strong className="text-ink">Biol</strong> : lun–mer 13h30–17h30 / sam
-              9h–12h et 13h30–17h30
-            </li>
-            <li>
-              <strong className="text-ink">St-Victor-de-Cessieu</strong> : lun–mer
-              13h30–17h30 / sam 9h–12h 13h30–17h30
-            </li>
-          </ul>
-          <NoticeMairie>
-            Horaires des déchèteries : confirmer sur les sites des syndicats ou
-            intercommunalités avant de vous déplacer.
-          </NoticeMairie>
+        <Section id="decheteries" title="Déchèteries">
+          <p className="text-ink-muted">
+            Les <strong className="text-ink">horaires et l’accès</strong> aux
+            déchèteries du territoire sont publiés par le{" "}
+            <strong className="text-ink">SMND</strong> (syndicat). La{" "}
+            <strong className="text-ink">CAPI</strong> indique aussi les
+            déchèteries du territoire Porte de l’Isère — ne vous fiez pas à des
+            horaires recopiés ailleurs.
+          </p>
+          <Card className="mt-4">
+            <p className="text-sm font-semibold text-ink">Liens utiles</p>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-ink-muted">
+              <li>
+                <a
+                  href={siteConfig.urls.smndDechetteriesHoraires}
+                  rel="noopener noreferrer"
+                  className="font-medium text-sage-dark underline"
+                >
+                  Horaires et accès — SMND
+                </a>
+              </li>
+              <li>
+                <a
+                  href={siteConfig.urls.capiDechetteries}
+                  rel="noopener noreferrer"
+                  className="font-medium text-sage-dark underline"
+                >
+                  Déchèteries — CAPI Porte de l’Isère
+                </a>
+              </li>
+            </ul>
+          </Card>
+          <p className="mt-4 text-sm text-ink-muted">
+            Exemples de sites souvent utilisés depuis le secteur : Châteauvilain,
+            Nivolas-Vermelle, Biol, St-Victor-de-Cessieu — la liste et les
+            créneaux à jour sont sur les liens ci-dessus.
+          </p>
         </Section>
 
         <Section id="mobilite" eyebrow="Déplacements" title="Mobilité">
@@ -135,14 +145,19 @@ export default function VivrePage() {
 
         <Section id="telealarme" title="Télé-alarme">
           <p className="text-ink-muted">
-            Service public Nord-Isère pour personnes âgées ou en situation de
-            handicap. Environ 33 €/mois, déduction fiscale 50 % possible selon
-            situation. Aides : APA, caisses de retraite, APCH.
+            Dispositif pour personnes âgées ou en situation de handicap. Tarif,
+            inscription et aides (APA, caisses de retraite, etc.) : voir le site
+            du{" "}
+            <a
+              href={siteConfig.urls.isereAutonomie}
+              rel="noopener noreferrer"
+              className="font-medium text-sage-dark underline"
+            >
+              Département de l’Isère — Autonomie
+            </a>{" "}
+            et contacter le service pour une estimation à jour. La mairie peut
+            orienter vers les interlocuteurs.
           </p>
-          <NoticeMairie>
-            Tarifs et modalités d’inscription : confirmer auprès du service
-            départemental ou de la mairie.
-          </NoticeMairie>
         </Section>
       </div>
     </div>

@@ -53,10 +53,11 @@ const raw: Professional[] = [
     id: "dallaine-dslcom",
     name: "DSLCOM — Stéphane Dallaine",
     serviceDescription:
-      "Électricité : installation et mise aux normes (artisan, secteur Succieu).",
-    addressLine: "19 hameau le Javet, 38300 Succieu",
+      "Électricien : installation, dépannage et mise aux normes (artisan à Succieu).",
+    phone: "06 61 80 86 82",
+    addressLine: "19 Le Javet, 38300 Succieu",
     mapsUrl: mapsSearchUrl(
-      "DSLCOM Stéphane Dallaine électricien 19 hameau le Javet 38300 Succieu",
+      "DSLCOM Dallaine Stéphane électricien 19 Le Javet 38300 Succieu",
     ),
   },
   {
@@ -75,8 +76,9 @@ const raw: Professional[] = [
     id: "fbl-digital",
     name: "FBL Digital",
     serviceDescription:
-      "Conseil et services informatiques pour particuliers et professionnels.",
+      "Consultant informatique : conseil et services numériques pour particuliers et professionnels. Horaires annoncés : ouvert 24h/24 (fiche Google Maps).",
     phone: "06 48 77 06 63",
+    website: "https://fbldigital.fr",
     addressLine: "15 Impasse du Pré Vert, 38300 Succieu",
     mapsUrl: mapsSearchUrl(
       "FBL Digital 15 Impasse du Pré Vert 38300 Succieu",
@@ -97,10 +99,12 @@ const raw: Professional[] = [
     id: "gamos-transports",
     name: "Gamos Transports",
     serviceDescription:
-      "Transport, logistique et prestations associées (zone route de Sérézin).",
+      "Service de transport et déménagement (zone route de Sérézin).",
+    phone: "04 74 18 55 60",
+    website: "https://gamos-transport-et-demenagement.com",
     addressLine: "1806 route de Sérézin, 38300 Succieu",
     mapsUrl: mapsSearchUrl(
-      "Gamos Transports 1806 route de Sérézin 38300 Succieu",
+      "GAMOS transports 1806 route de Sérézin 38300 Succieu",
     ),
   },
   {
@@ -150,11 +154,13 @@ const raw: Professional[] = [
     id: "la-soierie",
     name: "La Soierie",
     serviceDescription:
-      "Location de salles pour réunions, séminaires et événements professionnels (site patrimonial).",
+      "Centre d’affaires — location de salles de réunion, séminaires et événements professionnels (site patrimonial).",
     phone: "06 75 86 90 69",
     website: "https://www.la-soierie.com",
-    addressLine: "3 Le Goulet, 38300 Succieu",
-    mapsUrl: mapsSearchUrl("La Soierie 3 Le Goulet 38300 Succieu"),
+    addressLine: "31 Route des Grailles, 38300 Succieu",
+    mapsUrl: mapsSearchUrl(
+      "La Soierie 31 Route des Grailles 38300 Succieu",
+    ),
   },
   {
     id: "les-jacines",
@@ -170,12 +176,15 @@ const raw: Professional[] = [
   },
   {
     id: "ofull",
-    name: "Ofull",
+    name: "Ofull — Bien-être & habitat",
     serviceDescription:
-      "Courtier en travaux : accompagnement, mise en relation avec des artisans qualifiés (zone Nord-Isère et Terres Froides).",
+      "Entrepreneur spécialisé en décoration d’intérieur et accompagnement habitat (partenaire bien-être & habitat).",
+    phone: "07 56 82 68 47",
     website: "https://ofull.fr",
-    addressLine: "Couverture autour de Succieu — précisions sur ofull.fr",
-    mapsUrl: mapsSearchUrl("Ofull courtier travaux Isère Succieu"),
+    addressLine: "105 Montée des routes, 38300 Succieu",
+    mapsUrl: mapsSearchUrl(
+      "Ofull décoration intérieur 105 Montée des routes 38300 Succieu",
+    ),
   },
 ];
 

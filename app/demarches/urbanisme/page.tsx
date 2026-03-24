@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { NoticeMairie } from "@/components/ui/NoticeMairie";
+import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { siteConfig } from "@/lib/site";
 
@@ -16,15 +16,37 @@ export default function UrbanismePage() {
         Urbanisme
       </h1>
       <p className="mt-3 text-lg text-ink-muted">
-        Dépôt des dossiers, règlement et procédures — informations issues de
-        l’ancien site, à mettre à jour après les procédures en cours.
+        Dépôt des dossiers, règlement et procédures. Pour le document
+        d’urbanisme en vigueur (PLU, cartes), la référence est celle publiée sur
+        le Géoportail ; le service urbanisme et la CAPI peuvent vous
+        renseigner.
       </p>
 
-      <NoticeMairie>
-        Le PLU fait l’objet de modifications et d’enquêtes publiques. Vérifiez
-        toujours la version en vigueur et les dates auprès du service
-        urbanisme ou du portail CAPI.
-      </NoticeMairie>
+      <Card className="mt-8">
+        <p className="text-sm font-semibold text-ink">Sources officielles</p>
+        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-ink-muted">
+          <li>
+            <a
+              href={siteConfig.urls.geoportailUrbanisme}
+              className="font-medium text-sage-dark underline"
+              rel="noopener noreferrer"
+            >
+              Géoportail de l’urbanisme
+            </a>{" "}
+            — document d’urbanisme (PLU, cartes) en vigueur
+          </li>
+          <li>
+            <a
+              href={siteConfig.urls.capi}
+              className="font-medium text-sage-dark underline"
+              rel="noopener noreferrer"
+            >
+              CAPI — Porte de l’Isère
+            </a>{" "}
+            — compétence planification, dossiers en ligne
+          </li>
+        </ul>
+      </Card>
 
       <div className="mt-10 space-y-12 prose-site">
         <Section id="contact-urb" title="Contact">
@@ -85,45 +107,6 @@ export default function UrbanismePage() {
             <li>OAP (Orientation d’Aménagement et de Programmation)</li>
             <li>Règlement écrit et cartes de zonage (commune entière et secteurs)</li>
           </ol>
-        </Section>
-
-        <Section id="enquete-plu" eyebrow="Procédure" title="Enquête publique PLU">
-          <p className="text-ink-muted">
-            Au moment de l’export du site (mars 2026), une modification du PLU
-            était annoncée :
-          </p>
-          <ul className="mt-2 text-ink-muted">
-            <li>Modification n°1 du PLU + mise à jour du zonage assainissement</li>
-            <li>
-              Enquête du 6 janvier 2026 au 7 février 2026 (dates à confirmer
-              après clôture)
-            </li>
-            <li>
-              Contact :{" "}
-              <a
-                href={`mailto:${siteConfig.emails.enquetePlu}`}
-                className="text-sage-dark underline"
-              >
-                {siteConfig.emails.enquetePlu}
-              </a>
-            </li>
-          </ul>
-        </Section>
-
-        <Section id="zaenr" title="ZAENR (énergies renouvelables)">
-          <ul className="text-ink-muted">
-            <li>Loi APER du 10 mars 2023</li>
-            <li>Concertation : 17 juin → 19 juillet 2024</li>
-            <li>
-              Contact :{" "}
-              <a
-                href={`mailto:${siteConfig.emails.urbanisme}`}
-                className="text-sage-dark underline"
-              >
-                {siteConfig.emails.urbanisme}
-              </a>
-            </li>
-          </ul>
         </Section>
       </div>
     </div>

@@ -42,9 +42,31 @@ export const siteConfig = {
       "https://app.panneaupocket.com/embeded/110180054?mode=widget",
     capi: "https://capi-agglo.fr",
     smnd: "http://www.smnd.fr/Succieu.html",
+    /** Horaires et accès aux déchèteries (SMND) */
+    smndDechetteriesHoraires:
+      "https://smnd.fr/decheteries/horaires-et-acces/",
     regionTransport: "https://www.laregionvoustransporte.fr",
     ruban: "https://www.rubantransport.com",
     lane: "https://www.lanemove.com",
+    /** France Titres (ANTS) — pré-demande, mairies équipées */
+    franceTitres: "https://passeport.ants.gouv.fr",
+    antsGouv: "https://ants.gouv.fr",
+    servicePublic: "https://www.service-public.fr",
+    servicePublicPasseport:
+      "https://www.service-public.fr/particuliers/vosdroits/F10403",
+    servicePublicCni:
+      "https://www.service-public.fr/particuliers/vosdroits/N358",
+    servicePublicRecensement:
+      "https://www.service-public.fr/particuliers/vosdroits/F870",
+    /** Document d’urbanisme officiellement publié (PLU, etc.) */
+    geoportailUrbanisme: "https://www.geoportail-urbanisme.gouv.fr",
+    /** Déchetteries du territoire CAPI */
+    capiDechetteries:
+      "https://capi-agglo.fr/vos-services/services-urbains/dechetteries/",
+    /** Autonomie, handicap, téléassistance (Département) */
+    isereAutonomie: "https://www.isere.fr/autonomie",
+    /** CAF de l’Isère — petite enfance, aides */
+    cafIsere: "https://www.caf.fr/allocataires/caf-de-l-isere",
   },
 } as const;
 
