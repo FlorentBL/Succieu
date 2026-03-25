@@ -46,6 +46,30 @@ export const associationsList: AssociationBlock[] = [
     ],
   },
   {
+    id: "graines-de-grappe",
+    title: "Graines de grappe",
+    description: [
+      "Association culturelle qui propose de semer des « graines de savoir » à travers des ateliers artistiques, culturels et linguistiques, de manière ludique pour les enfants comme pour les parents.",
+    ],
+    contacts: [
+      {
+        kind: "link",
+        label: "E-mail",
+        href: "mailto:grainesdegrappe@gmail.com",
+      },
+      {
+        kind: "link",
+        label: "Téléphone",
+        href: "tel:+33613554719",
+      },
+      {
+        kind: "link",
+        label: "Facebook",
+        href: "https://www.facebook.com/profile.php?id=100084835375425",
+      },
+    ],
+  },
+  {
     id: "amis-milliassiere",
     title: "Les Amis de Milliassière",
     description: [

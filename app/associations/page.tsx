@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { associationsList } from "@/lib/associations";
@@ -11,6 +10,19 @@ export const metadata: Metadata = {
   description:
     "Associations sportives et culturelles, professionnels et services de proximité à Succieu.",
 };
+
+/** Libellé lisible pour les liens (e-mail, téléphone FR +33, URL). */
+function associationLinkLabel(href: string): string {
+  if (href.startsWith("mailto:")) return href.replace(/^mailto:/, "");
+  if (href.startsWith("tel:")) {
+    const d = href.replace(/^tel:\+33/, "");
+    if (d.length === 9 && /^\d+$/.test(d)) {
+      return `0${d[0]} ${d.slice(1, 3)} ${d.slice(3, 5)} ${d.slice(5, 7)} ${d.slice(7, 9)}`;
+    }
+    return href.replace(/^tel:/, "");
+  }
+  return href.replace(/^https?:\/\//i, "");
+}
 
 export default function AssociationsPage() {
   return (
@@ -24,6 +36,28 @@ export default function AssociationsPage() {
       </p>
 
       <div className="mt-10 space-y-10">
+        <Card>
+          <p className="text-sm text-ink-muted">
+            Vous représentez une association de Succieu non référencée, ou vous
+            souhaitez mettre à jour ou retirer une fiche existante ? Écrivez à la
+            mairie :{" "}
+            <a
+              href={`mailto:${siteConfig.emails.mairie}`}
+              className="font-medium text-sage-dark underline underline-offset-2"
+            >
+              {siteConfig.emails.mairie}
+            </a>{" "}
+            ou appelez le{" "}
+            <a
+              href={siteConfig.phoneTel}
+              className="font-medium text-sage-dark underline underline-offset-2"
+            >
+              {siteConfig.phone}
+            </a>
+            .
+          </p>
+        </Card>
+
         {associationsList.map((assoc) => (
           <Section key={assoc.id} id={assoc.id} title={assoc.title}>
             <Card>
@@ -47,15 +81,14 @@ export default function AssociationsPage() {
                           <a
                             href={c.href}
                             rel={
-                              c.href.startsWith("mailto:")
+                              c.href.startsWith("mailto:") ||
+                              c.href.startsWith("tel:")
                                 ? undefined
                                 : "noopener noreferrer"
                             }
                             className="text-sage-dark underline"
                           >
-                            {c.href.startsWith("mailto:")
-                              ? c.href.replace(/^mailto:/, "")
-                              : c.href.replace(/^https?:\/\//i, "")}
+                            {associationLinkLabel(c.href)}
                           </a>
                         </>
                       )}
@@ -76,11 +109,28 @@ export default function AssociationsPage() {
                 informations communiquées par les professionnels ou visibles sur leurs
                 supports officiels font foi.
               </p>
-              <p className="text-sm text-ink-subtle">
-                Sous réserve de modifications — merci de signaler toute erreur à la
-                mairie.
-              </p>
             </div>
+
+            <Card>
+              <p className="text-sm text-ink-muted">
+                Vous exercez à Succieu et vous souhaitez être référencé, mettre à
+                jour votre fiche ou demander un retrait ? Contactez la mairie :{" "}
+                <a
+                  href={`mailto:${siteConfig.emails.mairie}`}
+                  className="font-medium text-sage-dark underline underline-offset-2"
+                >
+                  {siteConfig.emails.mairie}
+                </a>{" "}
+                ou{" "}
+                <a
+                  href={siteConfig.phoneTel}
+                  className="font-medium text-sage-dark underline underline-offset-2"
+                >
+                  {siteConfig.phone}
+                </a>
+                .
+              </p>
+            </Card>
 
             <ul className="space-y-5">
               {professionalsList.map((pro) => (
@@ -137,26 +187,6 @@ export default function AssociationsPage() {
                 </li>
               ))}
             </ul>
-
-            <Card>
-              <p className="text-sm text-ink-muted">
-                Pour toute correction, ajout ou retrait :{" "}
-                <Link
-                  href="/contact"
-                  className="font-medium text-sage-dark underline underline-offset-2"
-                >
-                  page Contact
-                </Link>{" "}
-                ou mairie au{" "}
-                <a
-                  href={siteConfig.phoneTel}
-                  className="font-medium text-sage-dark underline underline-offset-2"
-                >
-                  {siteConfig.phone}
-                </a>
-                .
-              </p>
-            </Card>
           </div>
         </Section>
       </div>
