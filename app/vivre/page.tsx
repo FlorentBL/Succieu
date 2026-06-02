@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Vivre à Succieu",
   description:
-    "Marché, collecte des déchets, mobilité et télé-alarme — informations pour le quotidien à Succieu.",
+    "Marché, collecte des déchets, bruit, mobilité et télé-alarme — informations pour le quotidien à Succieu.",
 };
 
 export default function VivrePage() {
@@ -58,6 +58,34 @@ export default function VivrePage() {
               .
             </p>
           </Card>
+        </Section>
+
+        <Section id="bruit" eyebrow="Voisinage" title="Bruit">
+          <p className="text-ink-muted">
+            Les travaux de bricolage ou de jardinage réalisés par des
+            particuliers à l’aide d’outils bruyants (tondeuse, tronçonneuse,
+            perceuse, etc.) sont autorisés uniquement aux horaires suivants.
+          </p>
+          <Card className="mt-4">
+            <ul className="space-y-3 text-sm text-ink-muted">
+              <li>
+                <strong className="text-ink">Jours ouvrables</strong> : de 8h30 à
+                12h00 et de 14h00 à 19h30.
+              </li>
+              <li>
+                <strong className="text-ink">Samedis</strong> : de 9h00 à 12h00 et
+                de 15h00 à 19h00.
+              </li>
+              <li>
+                <strong className="text-ink">Dimanches et jours fériés</strong> :
+                de 10h00 à 12h00.
+              </li>
+            </ul>
+          </Card>
+          <p className="text-sm text-ink-muted">
+            Ces horaires sont définis par l’arrêté préfectoral relatif aux
+            nuisances sonores.
+          </p>
         </Section>
 
         <Section id="decheteries" title="Déchèteries">
