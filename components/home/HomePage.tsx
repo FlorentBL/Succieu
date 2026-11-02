@@ -7,7 +7,9 @@ import { IconArrowRight, IconMail, IconPhone, IconPin } from "@/components/icons
 import { NewsCarousel } from "@/components/home/NewsCarousel";
 import { PanneauPocketEmbed } from "@/components/home/PanneauPocketEmbed";
 import { QuickLinks } from "@/components/home/QuickLinks";
-import { homeSpotlightItems } from "@/lib/homeSpotlight";
+import { UpcomingEvents } from "@/components/home/UpcomingEvents";
+import type { HomeSpotlightItem } from "@/lib/homeSpotlight";
+import type { AgendaItem } from "@/lib/publicContent";
 import { siteConfig } from "@/lib/site";
 
 export const heroImageSrc = "/hero-village.jpg";
@@ -16,7 +18,7 @@ const intro =
   "Commune nature du Nord-Isère, porte des Terres Froides : la mairie, vos démarches et la vie du village.";
 
 /** Ouverture : aplat vert à gauche (nom + carrousel d’actualités), photo du village à droite. */
-function Hero() {
+function Hero({ items }: { items: HomeSpotlightItem[] }) {
   return (
     <section aria-labelledby="accueil-titre" className="relative bg-moss-dark">
       <div className="grid lg:min-h-[560px] lg:grid-cols-[1fr_1.15fr]">
@@ -25,7 +27,7 @@ function Hero() {
             <h1 id="accueil-titre" className="sr-only">
               Mairie de Succieu — {intro}
             </h1>
-            <NewsCarousel items={homeSpotlightItems} />
+            <NewsCarousel items={items} />
           </div>
         </div>
         <div className="relative order-1 h-[280px] sm:h-[380px] lg:order-2 lg:h-auto">
@@ -75,14 +77,22 @@ const communeLinks = [
   },
 ];
 
-export function HomePage() {
+export function HomePage({
+  spotlight,
+  agenda,
+}: {
+  spotlight: HomeSpotlightItem[];
+  agenda: AgendaItem[];
+}) {
   return (
     <div>
-      <Hero />
+      <Hero items={spotlight} />
 
       <PageShell className="mt-4 sm:mt-6">
         <QuickLinks />
       </PageShell>
+
+      <UpcomingEvents items={agenda} />
 
       <section aria-labelledby="accueil-commune" className="mt-16 sm:mt-20">
         <HillArc variant="fill" className="h-12 text-moss sm:h-16 lg:h-24" />

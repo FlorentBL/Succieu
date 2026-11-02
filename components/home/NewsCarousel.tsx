@@ -91,12 +91,20 @@ export function NewsCarousel({ items }: { items: HomeSpotlightItem[] }) {
               <p className="mt-4 max-w-lg text-lg leading-relaxed text-white/90">
                 {item.body}
               </p>
-              <Link
-                href={item.href}
-                className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-ink transition hover:bg-colza focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-              >
-                {item.cta} <IconArrowRight className="h-4 w-4" />
-              </Link>
+              <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2">
+                <Link
+                  href={item.href}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-ink transition hover:bg-colza focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  {item.cta} <IconArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/actualites"
+                  className="inline-flex min-h-11 items-center text-sm font-semibold text-white underline decoration-white/40 underline-offset-4 hover:decoration-colza focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                >
+                  Toutes les actualités
+                </Link>
+              </div>
             </article>
           );
         })}

@@ -91,3 +91,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 ## Tests
 
 `npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou.
+
+## Pages publiques
+
+`/` (carrousel : 4 dernières actualités, complétées par `lib/homeSpotlight.ts` ; bande « Prochains rendez-vous »), `/actualites`, `/actualites/<id>`, `/agenda`, `/agenda/passes`. Logique dans `lib/publicContent.ts` (le marché du samedi matin, sans heure, est inséré à son prochain samedi, heure de Paris, jusqu'à 13 h). Pages en `revalidate = 60` en repli de `revalidatePath` ; le sitemap inclut les actualités publiées.
