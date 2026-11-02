@@ -45,6 +45,9 @@ export const siteConfig = {
     /** Horaires et accès aux déchèteries (SMND) */
     smndDechetteriesHoraires:
       "https://smnd.fr/decheteries/horaires-et-acces/",
+    /** Déclaration officielle des nids ou suspicions de frelons asiatiques */
+    frelonsAsiatiquesParticuliers:
+      "https://www.frelonsasiatiques.fr/particuliers/",
     regionTransport: "https://www.laregionvoustransporte.fr",
     ruban: "https://www.rubantransport.com",
     lane: "https://www.lanemove.com",

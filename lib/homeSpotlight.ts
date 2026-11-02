@@ -14,6 +14,15 @@ export type HomeSpotlightItem = {
 
 export const homeSpotlightItems: HomeSpotlightItem[] = [
   {
+    id: "frelon-asiatique",
+    meta: "Alerte - 8 juin 2026",
+    title: "Lutte contre le frelon asiatique",
+    body:
+      "Vous avez repéré un nid ou suspectez la présence de frelons asiatiques ? La déclaration se fait sur le site officiel. La mairie et Vincent Joannes peuvent aussi vous accompagner.",
+    href: "/vivre#frelon-asiatique",
+    cta: "Voir la démarche à suivre",
+  },
+  {
     id: "nouveau-conseil",
     meta: "Institution",
     title: "Un nouveau conseil municipal",

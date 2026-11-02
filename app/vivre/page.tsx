@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Vivre à Succieu",
   description:
-    "Marché, collecte des déchets, bruit, mobilité et télé-alarme — informations pour le quotidien à Succieu.",
+    "Marché, collecte des déchets, frelon asiatique, bruit, mobilité et télé-alarme — informations pour le quotidien à Succieu.",
 };
 
 export default function VivrePage() {
@@ -56,6 +56,73 @@ export default function VivrePage() {
                 calendrier Succieu (SMND)
               </a>
               .
+            </p>
+          </Card>
+        </Section>
+
+        <Section
+          id="frelon-asiatique"
+          eyebrow="Environnement"
+          title="Frelon asiatique"
+        >
+          <p className="text-ink-muted">
+            Alerte publiée le{" "}
+            <strong className="text-ink">8 juin 2026 à 14h28</strong>. La commune
+            appelle à la vigilance afin de limiter la prolifération du frelon
+            asiatique et de protéger les abeilles.
+          </p>
+
+          <Card className="mt-4">
+            <h3 className="font-semibold text-ink">
+              Nid repéré ou présence suspectée
+            </h3>
+            <p className="mt-2 text-sm text-ink-muted">
+              Effectuez votre déclaration sur le site officiel dédié aux
+              particuliers.
+            </p>
+            <a
+              href={siteConfig.urls.frelonsAsiatiquesParticuliers}
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-moss px-5 py-2 text-sm font-semibold !text-white !no-underline transition hover:bg-moss-dark hover:!text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+            >
+              Déclarer sur frelonsasiatiques.fr
+            </a>
+          </Card>
+
+          <Card className="mt-4">
+            <h3 className="font-semibold text-ink">
+              Besoin d’aide dans la démarche
+            </h3>
+            <ul className="mt-3 space-y-2 text-sm text-ink-muted">
+              <li>
+                Mairie :{" "}
+                <a
+                  href={siteConfig.phoneTel}
+                  className="font-medium text-sage-dark underline"
+                >
+                  {siteConfig.phone}
+                </a>
+              </li>
+              <li>
+                Vincent Joannes :{" "}
+                <a
+                  href="tel:+33676823049"
+                  className="font-medium text-sage-dark underline"
+                >
+                  06 76 82 30 49
+                </a>
+              </li>
+            </ul>
+          </Card>
+
+          <Card className="mt-4">
+            <h3 className="font-semibold text-ink">
+              Appel aux apiculteurs de Succieu
+            </h3>
+            <p className="mt-2 text-sm text-ink-muted">
+              Afin d’organiser les premières actions de piégeage sur la commune,
+              les apiculteurs sont invités à se faire connaître auprès de
+              Vincent Joannes.
             </p>
           </Card>
         </Section>
