@@ -12,13 +12,11 @@ export function MairieOpeningHours({ variant = "default", className = "" }: Prop
   if (variant === "footer") {
     return (
       <div className={className}>
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-brass-muted">
-          Horaires
-        </p>
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs leading-snug text-stone-500">
+        <p className="text-sm font-semibold text-white">Horaires d’accueil</p>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm leading-snug text-white/75">
           {rows.map((row) => (
             <div key={row.day} className="contents">
-              <dt className="text-stone-400">{row.day}</dt>
+              <dt className="text-white/90">{row.day}</dt>
               <dd>{row.hours}</dd>
             </div>
           ))}

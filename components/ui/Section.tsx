@@ -1,12 +1,12 @@
 export function Section({
   id,
   title,
-  eyebrow,
   children,
   className = "",
 }: {
   id?: string;
   title: string;
+  /** Conservé pour compatibilité ; n’est plus affiché. */
   eyebrow?: string;
   children: React.ReactNode;
   className?: string;
@@ -17,14 +17,9 @@ export function Section({
       className={`scroll-mt-28 ${className}`}
       {...(id ? { "aria-labelledby": `${id}-titre` } : {})}
     >
-      {eyebrow ? (
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-brass">
-          {eyebrow}
-        </p>
-      ) : null}
       <h2
         {...(id ? { id: `${id}-titre` } : {})}
-        className="font-display mt-3 text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
+        className="font-display text-2xl font-bold tracking-tight text-ink sm:text-[1.875rem]"
       >
         {title}
       </h2>

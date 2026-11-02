@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { SiteLogo } from "@/components/layout/SiteLogo";
-import { mainNav } from "@/lib/site";
+import { IconChevronDown, IconClose, IconMenu, IconPhone } from "@/components/icons/UiIcons";
+import { TodayStatus } from "@/components/ui/TodayStatus";
+import { mainNav, siteConfig } from "@/lib/site";
 
 function NavLink({
   href,
@@ -18,10 +20,10 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`relative whitespace-nowrap rounded-md px-2.5 py-2 text-[0.8125rem] font-medium leading-none tracking-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)] xl:text-sm ${
+      className={`relative whitespace-nowrap rounded-full px-3 py-2 text-[0.875rem] font-medium leading-none tracking-tight transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)] xl:text-sm ${
         current
-          ? "text-moss-dark after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-[3px] after:rounded-full after:bg-moss"
-          : "text-ink-muted hover:bg-canvas hover:text-ink"
+          ? "text-ink after:absolute after:inset-x-2.5 after:-bottom-0.5 after:h-[3px] after:rounded-full after:bg-tuile"
+          : "text-ink-muted hover:bg-pre-pale hover:text-ink"
       }`}
       aria-current={current ? "page" : undefined}
     >
@@ -42,8 +44,20 @@ export function SiteHeader() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border-subtle bg-surface/92 shadow-[0_10px_40px_-24px_rgba(26,22,20,0.28)] backdrop-blur-md supports-[backdrop-filter]:bg-surface/85">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3.5 sm:px-6 sm:py-4 lg:gap-4 lg:px-8">
+    <header className="sticky top-0 z-50 border-b border-border-subtle bg-surface shadow-[0_8px_24px_-20px_rgba(20,33,26,0.35)]">
+      <div className="bg-moss-dark">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-1 sm:px-6 lg:px-8">
+          <TodayStatus variant="bar" />
+          <a
+            href={siteConfig.phoneTel}
+            className="hidden min-h-8 items-center gap-2 text-sm text-white/90 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:inline-flex"
+          >
+            <IconPhone className="h-4 w-4" />
+            {siteConfig.phone}
+          </a>
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:gap-4 lg:px-8">
         <SiteLogo variant="header" />
 
         <nav className="hidden min-w-0 flex-1 justify-end xl:flex" aria-label="Navigation principale">
@@ -77,24 +91,22 @@ export function SiteHeader() {
                       }}
                     >
                       <summary
-                        className={`relative list-none cursor-pointer whitespace-nowrap rounded-md px-2.5 py-2 text-[0.8125rem] font-medium leading-none tracking-tight transition-colors xl:text-sm [&::-webkit-details-marker]:hidden ${
+                        className={`relative list-none cursor-pointer whitespace-nowrap rounded-full px-3 py-2 text-[0.875rem] font-medium leading-none tracking-tight transition-colors xl:text-sm [&::-webkit-details-marker]:hidden ${
                           sectionActive
-                            ? "text-moss-dark after:pointer-events-none after:absolute after:inset-x-1.5 after:bottom-0.5 after:h-[3px] after:rounded-full after:bg-moss"
-                            : "text-ink-muted hover:bg-canvas hover:text-ink"
+                            ? "text-ink after:pointer-events-none after:absolute after:inset-x-2.5 after:-bottom-0.5 after:h-[3px] after:rounded-full after:bg-tuile"
+                            : "text-ink-muted hover:bg-pre-pale hover:text-ink"
                         }`}
                       >
-                        <span className="inline-flex items-center gap-0.5">
+                        <span className="inline-flex items-center gap-1">
                           {item.label}
-                          <span className="text-[0.65rem] opacity-70" aria-hidden>
-                            ▾
-                          </span>
+                          <IconChevronDown className="h-3.5 w-3.5 opacity-70 transition-transform group-open:rotate-180" />
                         </span>
                       </summary>
-                      <ul className="absolute right-0 z-50 mt-2 min-w-[15rem] rounded-xl border border-border-subtle bg-surface py-1.5 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.2)]">
+                      <ul className="absolute right-0 z-50 mt-2 min-w-[15rem] rounded-2xl border border-border-subtle bg-surface p-1.5 shadow-[0_18px_40px_-18px_rgba(20,33,26,0.28)]">
                         <li>
                           <Link
                             href={item.href}
-                            className="block px-4 py-2 text-sm text-ink-muted hover:bg-canvas hover:text-ink"
+                            className="block rounded-xl px-3.5 py-2.5 text-sm text-ink-muted hover:bg-pre-pale hover:text-ink"
                           >
                             Vue d’ensemble
                           </Link>
@@ -103,7 +115,7 @@ export function SiteHeader() {
                           <li key={c.href}>
                             <Link
                               href={c.href}
-                              className="block px-4 py-2 text-sm text-ink-muted hover:bg-canvas hover:text-ink"
+                              className="block rounded-xl px-3.5 py-2.5 text-sm text-ink-muted hover:bg-pre-pale hover:text-ink"
                             >
                               {c.label}
                             </Link>
@@ -124,15 +136,13 @@ export function SiteHeader() {
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-border-subtle bg-canvas p-2.5 text-ink xl:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-pre-pale text-ink xl:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
         >
           <span className="sr-only">{open ? "Fermer le menu" : "Ouvrir le menu"}</span>
-          <span aria-hidden className="text-lg font-semibold">
-            {open ? "✕" : "☰"}
-          </span>
+          {open ? <IconClose className="h-5 w-5" /> : <IconMenu className="h-5 w-5" />}
         </button>
       </div>
 
@@ -157,14 +167,14 @@ export function SiteHeader() {
                       onClick={() => setOpen(false)}
                       className={`block rounded-md px-3 py-2 text-base font-medium ${
                         active
-                          ? "bg-stone-warm text-moss-dark"
-                          : "text-ink hover:bg-canvas"
+                          ? "bg-pre-pale text-moss-dark"
+                          : "text-ink hover:bg-pre-pale"
                       }`}
                     >
                       {item.label}
                     </Link>
                     {item.children ? (
-                      <ul className="ml-3 mt-1 border-l border-stone-warm pl-3">
+                      <ul className="ml-3 mt-1 border-l-2 border-pre-pale pl-3">
                         {item.children.map((c) => (
                           <li key={c.href}>
                             <Link

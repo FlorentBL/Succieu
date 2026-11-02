@@ -7,8 +7,8 @@ type Props = {
   className?: string;
 };
 
-/** Dimensions natives du PNG officiel (`public/logo-succieu.png`) — ratio d’affichage pour `next/image`. */
-const LOGO_INTRINSIC = { w: 3370, h: 2384 } as const;
+/** Dimensions du PNG recadré (`public/logo-succieu-trim.png`) — ratio d’affichage pour `next/image`. */
+const LOGO_INTRINSIC = { w: 1000, h: 477 } as const;
 
 export function SiteLogo({ variant = "header", className = "" }: Props) {
   const isHeader = variant === "header";
@@ -24,10 +24,10 @@ export function SiteLogo({ variant = "header", className = "" }: Props) {
         alt="Succieu — commune nature"
         width={w}
         height={h}
-        className={`h-auto object-contain object-left ${
+        className={`object-contain object-left ${
           isHeader
-            ? "w-[min(100%,380px)] max-h-[5rem] sm:max-h-[5.5rem] lg:max-h-[6rem]"
-            : "max-w-[min(100%,220px)] max-h-14 brightness-0 invert opacity-95"
+            ? "h-12 w-auto sm:h-14"
+            : "h-16 w-auto brightness-0 invert"
         }`}
         priority={isHeader}
       />

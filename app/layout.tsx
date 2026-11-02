@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Source_Sans_3 } from "next/font/google";
+import { Bricolage_Grotesque, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { SkipLink } from "@/components/layout/SkipLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -12,13 +12,11 @@ const sourceSans = Source_Sans_3({
   display: "swap",
 });
 
-/** Titres : serif élégant — poids explicites pour un rendu fiable partout */
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+/** Titres : grotesque vivante, en écho au lettrage du logo */
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "600", "700"],
-  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -53,7 +51,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body
-        className={`${sourceSans.variable} ${playfair.variable} min-h-screen font-sans antialiased`}
+        className={`${sourceSans.variable} ${bricolage.variable} min-h-screen font-sans antialiased`}
       >
         <SkipLink />
         <SiteHeader />

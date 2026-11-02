@@ -1,41 +1,39 @@
 import { siteConfig } from "@/lib/site";
 
 /**
- * Bloc iframe PanneauPocket (sans wrapper de section) pour placement en grille.
- * Le widget officiel est étroit (type « téléphone ») : on le centre dans l’encart.
+ * Widget officiel PanneauPocket (iframe étroite, format « téléphone »),
+ * posé sur un aplat bleu ciel.
  */
-export function PanneauPocketEmbed() {
-  const embedUrl = siteConfig.urls.panneauPocketEmbed;
-
+export function PanneauPocketEmbed({ className = "" }: { className?: string }) {
   return (
-    <div className="min-w-0">
+    <div
+      className={`min-w-0 rounded-[1.5rem] bg-ciel-pale p-5 sm:p-6 ${className}`}
+    >
       <h2
         id="accueil-panneaupocket"
-        className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl"
+        className="font-display text-2xl font-bold tracking-tight text-ink"
       >
-        Actualités & alertes
+        Alertes de la mairie
       </h2>
-      <p className="mt-3 text-sm leading-relaxed text-ink-muted">
-        Fil d’informations géré avec{" "}
+      <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+        Publiées sur{" "}
         <a
-          href="https://www.panneaupocket.com/"
-          className="font-medium text-sage-dark underline underline-offset-2"
+          href={siteConfig.urls.panneauPocket}
+          className="font-semibold text-ciel underline underline-offset-2"
           rel="noopener noreferrer"
         >
           PanneauPocket
-        </a>.
+        </a>
+        , aussi consultables sur téléphone avec l’application.
       </p>
-
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border-subtle bg-canvas/40 shadow-[0_12px_40px_-20px_rgba(26,22,20,0.2)]">
-        <div className="flex w-full justify-center px-2 py-4 sm:px-4 sm:py-5">
-          <iframe
-            title="PanneauPocket — informations municipales de Succieu"
-            src={embedUrl}
-            className="block h-[26rem] w-[min(100%,20rem)] shrink-0 border-0 sm:h-[28rem] lg:h-[32rem]"
-            loading="lazy"
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
-        </div>
+      <div className="mt-5 flex justify-center">
+        <iframe
+          title="PanneauPocket — informations municipales de Succieu"
+          src={siteConfig.urls.panneauPocketEmbed}
+          className="block h-[28rem] w-[min(100%,20rem)] shrink-0 rounded-2xl border-0 bg-white shadow-[0_12px_30px_-18px_rgba(20,33,26,0.4)] lg:h-[31rem]"
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+        />
       </div>
     </div>
   );

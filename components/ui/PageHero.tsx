@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { HillArc } from "@/components/ui/HillArc";
 import { PageShell } from "@/components/ui/PageShell";
 
 type Props = {
-  eyebrow: string;
+  /** Conservé pour compatibilité ; n’est plus affiché. */
+  eyebrow?: string;
   title: string;
   description?: ReactNode;
   /** Contenu sous le texte (CTA, etc.) */
@@ -13,47 +15,38 @@ type Props = {
 };
 
 /**
- * Bandeau d’intro de page : rythme vertical, filet décoratif, titre unique visuel fort.
+ * Bandeau d’intro de page : aplat vert prairie, étourneau en filigrane,
+ * bas découpé par l’arc de colline du logo.
  */
 export function PageHero({
-  eyebrow,
   title,
   description,
   children,
   className = "",
   compact = false,
 }: Props) {
-  const shellPad = compact
-    ? "py-10 sm:py-12 lg:py-14"
-    : "py-16 sm:py-20 lg:py-24";
-  const titleGap = compact ? "mt-5" : "mt-6";
-  const descGap = compact ? "mt-4" : "mt-6";
+  const shellPad = compact ? "pt-10 pb-8 sm:pt-12" : "pt-12 pb-10 sm:pt-16 lg:pt-20";
   const descMax = compact ? "max-w-3xl" : "max-w-2xl";
-  const descText = compact ? "text-base leading-relaxed" : "text-lg leading-[1.75]";
-  const childGap = compact ? "mt-6" : "mt-10";
+  const descText = compact ? "text-base leading-relaxed" : "text-lg leading-[1.7]";
 
   return (
-    <div
-      className={`border-b border-border-subtle bg-gradient-to-b from-surface via-surface to-canvas/50 ${className}`}
-    >
-      <PageShell className={shellPad}>
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.35em] text-brass">
-          {eyebrow}
-        </p>
-        <div
-          className="mt-4 h-px w-12 bg-brass/50"
-          aria-hidden
-        />
-        <h1 className={`font-display ${titleGap} max-w-3xl text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-[3.25rem] lg:leading-[1.1]`}>
+    <div className={`relative overflow-hidden bg-pre-pale ${className}`}>
+      <span
+        className="etourneau pointer-events-none absolute -right-6 top-6 hidden w-44 text-moss/10 md:block lg:right-[8%] lg:w-56"
+        aria-hidden
+      />
+      <PageShell className={`relative ${shellPad}`}>
+        <h1 className="font-display max-w-3xl text-4xl font-bold tracking-tight text-moss-dark sm:text-5xl lg:text-[3.4rem] lg:leading-[1.05]">
           {title}
         </h1>
         {description ? (
-          <div className={`${descGap} ${descMax} ${descText} text-ink-muted`}>
+          <div className={`mt-5 ${descMax} ${descText} text-ink-muted`}>
             {description}
           </div>
         ) : null}
-        {children ? <div className={childGap}>{children}</div> : null}
+        {children ? <div className="mt-8">{children}</div> : null}
       </PageShell>
+      <HillArc variant="fill" className="h-8 text-surface sm:h-12 lg:h-16" />
     </div>
   );
 }

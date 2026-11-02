@@ -10,12 +10,17 @@ export type HomeSpotlightItem = {
   cta: string;
   /** Affiché en petit (ex. période ou type d’info) */
   meta?: string;
+  /** Alerte (frelon, sécurité…) : mise en avant en rouge tuile */
+  alert?: boolean;
+  /** Image facultative (chemin dans `public/`), pour le futur fil d’actualités */
+  image?: string;
 };
 
 export const homeSpotlightItems: HomeSpotlightItem[] = [
   {
     id: "frelon-asiatique",
-    meta: "Alerte - 8 juin 2026",
+    meta: "Alerte · 8 juin 2026",
+    alert: true,
     title: "Lutte contre le frelon asiatique",
     body:
       "Vous avez repéré un nid ou suspectez la présence de frelons asiatiques ? La déclaration se fait sur le site officiel. La mairie et Vincent Joannes peuvent aussi vous accompagner.",
