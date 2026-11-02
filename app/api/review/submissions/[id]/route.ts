@@ -1,6 +1,7 @@
 import { requireReviewToken } from "@/lib/auth/guards";
 import { handle, ok, readJsonBody } from "@/lib/auth/http";
 import { getSubmission, submitReview } from "@/lib/content/store";
+import { imageExists } from "@/lib/content/images";
 import { parseReview } from "@/lib/content/validation";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,6 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (req, ctx)
   requireReviewToken(req);
   const { id } = await ctx.params;
   const current = await getSubmission(id);
-  const review = await parseReview(current.kind, await readJsonBody(req));
+  const review = await parseReview(current.kind, await readJsonBody(req), imageExists);
   return ok({ submission: await submitReview(id, review) });
 });

@@ -1,5 +1,4 @@
 import { AppError } from "./errors";
-import { imageExists } from "./images";
 import type {
   ArticleFields,
   ContentFields,
@@ -201,7 +200,15 @@ export function parseKind(v: unknown): SubmissionKind {
 
 export type ReviewInput = Omit<Review, "reviewedAt">;
 
-export async function parseReview(kind: SubmissionKind, input: unknown): Promise<ReviewInput> {
+/**
+ * Valide l’avis du relecteur. `imageExists` est fourni par l’appelant côté serveur
+ * (lib/content/images) : ce module reste importable côté client, sans accès disque.
+ */
+export async function parseReview(
+  kind: SubmissionKind,
+  input: unknown,
+  imageExists?: (name: string) => Promise<boolean>,
+): Promise<ReviewInput> {
   const src = asObject(input);
   const errors: Errors = {};
   if (typeof src.ok !== "boolean") errors.ok = "ok : booléen attendu.";
@@ -227,7 +234,7 @@ export async function parseReview(kind: SubmissionKind, input: unknown): Promise
   }
   if (kind === "article" && corrected) {
     const img = (corrected as ArticleFields).image;
-    if (img && !(await imageExists(img))) {
+    if (img && imageExists && !(await imageExists(img))) {
       errors["corrected.image"] = "Image : fichier introuvable, renvoyez-le.";
     }
   }
