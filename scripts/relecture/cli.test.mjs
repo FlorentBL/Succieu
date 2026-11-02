@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { validateReview, buildDiscordPayload, truncate, submitReview, notify, show, main } from "./cli.mjs";
 
 const ID = "a-0123456789abcdef";
-const env = { SUCCIEU_BASE_URL: "https://x.test", REVIEW_API_TOKEN: "t".repeat(24), DISCORD_WEBHOOK_URL: "https://discord.test/hook" };
+const env = { SUCCIEU_BASE_URL: "https://x.test", REVIEW_API_TOKEN: "t".repeat(24), DISCORD_WEBHOOK_ALERTES_MAIRIE: "https://discord.test/hook" };
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 const good = { ok: false, issues: ["Faute"], corrected: { title: "T" }, summary: "Résumé" };
 
@@ -64,12 +64,12 @@ test("notify : lit la saisie puis poste sur le webhook", async () => {
   const calls = [];
   const fetchFn = async (url) => {
     calls.push(url);
-    return url === env.DISCORD_WEBHOOK_URL ? { ok: true, status: 204 } : json({ submission: { id: ID, kind: "event", author: "A", original: { title: "Fête" } } });
+    return url === env.DISCORD_WEBHOOK_ALERTES_MAIRIE ? { ok: true, status: 204 } : json({ submission: { id: ID, kind: "event", author: "A", original: { title: "Fête" } } });
   };
   assert.match(await notify(ID, { env, fetchFn }), /envoyée/);
   assert.equal(calls.length, 2);
-  await assert.rejects(notify(ID, { env: { ...env, DISCORD_WEBHOOK_URL: "" }, fetchFn }), /DISCORD_WEBHOOK_URL/);
-  await assert.rejects(notify(ID, { env, fetchFn: async (u) => (u === env.DISCORD_WEBHOOK_URL ? { ok: false, status: 429 } : json({ submission: { id: ID, kind: "event", author: "A", original: {} } })) }), /429/);
+  await assert.rejects(notify(ID, { env: { ...env, DISCORD_WEBHOOK_ALERTES_MAIRIE: "" }, fetchFn }), /DISCORD_WEBHOOK_ALERTES_MAIRIE/);
+  await assert.rejects(notify(ID, { env, fetchFn: async (u) => (u === env.DISCORD_WEBHOOK_ALERTES_MAIRIE ? { ok: false, status: 429 } : json({ submission: { id: ID, kind: "event", author: "A", original: {} } })) }), /429/);
 });
 
 test("main : usage", async () => {

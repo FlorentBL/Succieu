@@ -17,7 +17,7 @@ Dans le coffre de secrets Timon, en mode **inject** (injection en variables d'en
 |---|---|
 | `SUCCIEU_BASE_URL` | URL publique du site, sans `/` final (ex. `https://succieu.fr`) |
 | `REVIEW_API_TOKEN` | Même valeur que `REVIEW_API_TOKEN` du serveur (≥ 24 caractères) |
-| `DISCORD_WEBHOOK_URL` | URL du webhook de l'étape 1 |
+| `DISCORD_WEBHOOK_ALERTES_MAIRIE` | URL du webhook « Alertes Mairie » du salon #alertes-mairie (serveur FBL), déposée par Florent dans le coffre de secrets Timon (mode inject, périmètre `project:succieu`, car c'est l'agent succieu.relecteur qui poste). Ne jamais l'afficher. |
 
 `RELECTURE_STATE_FILE` n'est pas un secret : chemin du journal d'état, **hors dépôt**, par exemple `~/.timon/state/succieu-relecture.json` (créé avec les droits 600). Le journal évite de créer deux fois la même tâche ; le supprimer relance une tâche par saisie encore « submitted ». L'agent relecteur doit aussi recevoir ces variables (secrets injectés), sauf `RELECTURE_STATE_FILE`.
 

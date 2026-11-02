@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI de l'agent relecteur : show, submit-review, notify.
-// Env : SUCCIEU_BASE_URL, REVIEW_API_TOKEN, DISCORD_WEBHOOK_URL (notify).
+// Env : SUCCIEU_BASE_URL, REVIEW_API_TOKEN, DISCORD_WEBHOOK_ALERTES_MAIRIE (notify ; DISCORD_WEBHOOK_URL accepté en repli).
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,8 +103,8 @@ export function buildDiscordPayload(sub, baseUrl) {
 
 export async function notify(id, { env = process.env, fetchFn = fetch } = {}) {
   checkId(id);
-  const hook = env.DISCORD_WEBHOOK_URL;
-  if (!hook) throw new Error("DISCORD_WEBHOOK_URL manquante.");
+  const hook = env.DISCORD_WEBHOOK_ALERTES_MAIRIE || env.DISCORD_WEBHOOK_URL;
+  if (!hook) throw new Error("DISCORD_WEBHOOK_ALERTES_MAIRIE manquante.");
   const sub = await show(id, { env, fetchFn });
   const payload = buildDiscordPayload(sub, env.SUCCIEU_BASE_URL);
   const res = await fetchFn(hook, {
