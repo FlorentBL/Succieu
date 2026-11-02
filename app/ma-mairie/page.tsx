@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHero } from "@/components/ui/PageHero";
+import { communePhotos } from "@/lib/communePhotos";
 import { Card } from "@/components/ui/Card";
 
 export const metadata: Metadata = {
@@ -10,13 +12,13 @@ export const metadata: Metadata = {
 
 export default function MaMairiePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Ma Mairie
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Institution, élus et vie communale.
-      </p>
+    <div>
+      <PageHero
+        title="Ma Mairie"
+        description={<>Institution, élus et vie communale.</>}
+        photo={communePhotos.eglise}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <ul className="mt-10 grid gap-4 sm:grid-cols-1">
         <li>
@@ -59,6 +61,7 @@ export default function MaMairiePage() {
           </Card>
         </li>
       </ul>
+    </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageHero } from "@/components/ui/PageHero";
 import { Card } from "@/components/ui/Card";
 
 export const metadata: Metadata = {
@@ -10,13 +11,12 @@ export const metadata: Metadata = {
 
 export default function DemarchesPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Mes démarches
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Passeport, carte d’identité, recensement, urbanisme et dossiers CAPI.
-      </p>
+    <div>
+      <PageHero
+        title="Mes démarches"
+        description={<>Passeport, carte d’identité, recensement, urbanisme et dossiers CAPI.</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <ul className="mt-10 grid gap-4 sm:grid-cols-2">
         <li>
@@ -46,6 +46,7 @@ export default function DemarchesPage() {
           </Card>
         </li>
       </ul>
+    </div>
     </div>
   );
 }

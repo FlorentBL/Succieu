@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Section } from "@/components/ui/Section";
+import { CreditedPhoto } from "@/components/ui/CreditedPhoto";
+import { PageHero } from "@/components/ui/PageHero";
+import { communePhotos } from "@/lib/communePhotos";
 import { councilMembers } from "@/lib/council";
 
 const logoAuthorLine =
@@ -16,13 +19,12 @@ export const metadata: Metadata = {
 
 export default function IdentitePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Identité & histoire
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Racines du village et identité visuelle.
-      </p>
+    <div>
+      <PageHero
+        title="Identité & histoire"
+        description={<>Racines du village et identité visuelle.</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <div className="mt-10 space-y-10 prose-site">
         <Section id="identite-visuelle" title="Identité visuelle">
@@ -40,6 +42,8 @@ export default function IdentitePage() {
               Succieu, porte des Terres Froides. Le nom viendrait du latin
               « Sociacco » (sureau) ou d&apos;un propriétaire gallo-romain.
             </p>
+
+            <CreditedPhoto photo={communePhotos.cartePostale} sizes="(min-width: 768px) 34rem, 100vw" className="max-w-[34rem]" />
 
             <article className="space-y-3">
               <h3 className="font-display text-xl font-semibold text-ink">
@@ -71,6 +75,7 @@ export default function IdentitePage() {
               <h3 className="font-display text-xl font-semibold text-ink">
                 L&apos;église Saint-Pierre-aux-Liens et le prieuré
               </h3>
+              <CreditedPhoto photo={communePhotos.eglise} className="pt-1" />
               <p className="text-ink-muted">
                 Les premiers documents connus remontent au IXe siècle — dont un
                 acte entre le chapitre Saint-Maurice de Vienne et le prieuré de
@@ -128,6 +133,7 @@ export default function IdentitePage() {
           </div>
         </Section>
       </div>
+    </div>
     </div>
   );
 }

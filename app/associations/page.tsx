@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { associationsList } from "@/lib/associations";
 import { phoneToTelHref, professionalsList } from "@/lib/professionnels";
+import { PageHero } from "@/components/ui/PageHero";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -26,14 +27,12 @@ function associationLinkLabel(href: string): string {
 
 export default function AssociationsPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Associations et professionnels
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Vie associative et acteurs économiques de la commune — deux thèmes réunis sur une
-        même page, faute de volumes plus importants.
-      </p>
+    <div>
+      <PageHero
+        title="Associations et professionnels"
+        description={<>Vie associative et acteurs économiques de la commune — deux thèmes réunis sur une même page, faute de volumes plus importants.</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <div className="mt-10 space-y-10">
         <Card>
@@ -190,6 +189,7 @@ export default function AssociationsPage() {
           </div>
         </Section>
       </div>
+    </div>
     </div>
   );
 }

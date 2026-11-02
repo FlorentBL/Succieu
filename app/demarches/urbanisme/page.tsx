@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
+import { PageHero } from "@/components/ui/PageHero";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -11,16 +12,12 @@ export const metadata: Metadata = {
 
 export default function UrbanismePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Urbanisme
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Dépôt des dossiers, règlement et procédures. Pour le document
-        d’urbanisme en vigueur (PLU, cartes), la référence est celle publiée sur
-        le Géoportail ; le service urbanisme et la CAPI peuvent vous
-        renseigner.
-      </p>
+    <div>
+      <PageHero
+        title="Urbanisme"
+        description={<>Dépôt des dossiers, règlement et procédures. Pour le document d’urbanisme en vigueur (PLU, cartes), la référence est celle publiée sur le Géoportail ; le service urbanisme et la CAPI peuvent vous renseigner.</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <Card className="mt-8">
         <p className="text-sm font-semibold text-ink">Sources officielles</p>
@@ -109,6 +106,7 @@ export default function UrbanismePage() {
           </ol>
         </Section>
       </div>
+    </div>
     </div>
   );
 }

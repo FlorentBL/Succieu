@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
+import { PageHero } from "@/components/ui/PageHero";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -11,15 +12,12 @@ export const metadata: Metadata = {
 
 export default function VivrePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Vivre à Succieu
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Services du quotidien : marché, déchets, déplacements et solidarité.
-        Pour les transports, les horaires et fréquences à jour sont ceux publiés
-        par la Région et chaque opérateur (liens dans la section Mobilité).
-      </p>
+    <div>
+      <PageHero
+        title="Vivre à Succieu"
+        description={<>Services du quotidien : marché, déchets, déplacements et solidarité. Pour les transports, les horaires et fréquences à jour sont ceux publiés par la Région et chaque opérateur (liens dans la section Mobilité).</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <div className="mt-10 space-y-12 prose-site">
         <Section
@@ -255,6 +253,7 @@ export default function VivrePage() {
           </p>
         </Section>
       </div>
+    </div>
     </div>
   );
 }

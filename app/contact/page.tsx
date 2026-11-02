@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { MairieOpeningHours } from "@/components/ui/MairieOpeningHours";
 import { Section } from "@/components/ui/Section";
+import { PageHero } from "@/components/ui/PageHero";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -65,13 +66,12 @@ export default function ContactPage() {
   return (
     <>
       <ContactJsonLd />
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-          Contact
-        </h1>
-        <p className="mt-3 text-lg text-ink-muted">
-          Pour joindre la mairie et les services municipaux.
-        </p>
+      <div>
+        <PageHero
+          title="Contact"
+          description={<>Pour joindre la mairie et les services municipaux.</>}
+        />
+        <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
         <div className="mt-8 space-y-10">
           <Section title="Mairie" id="mairie">
@@ -172,6 +172,7 @@ export default function ContactPage() {
             </p>
           </Section>
         </div>
+      </div>
       </div>
     </>
   );

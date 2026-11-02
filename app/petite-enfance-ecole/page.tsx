@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
+import { PageHero } from "@/components/ui/PageHero";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -11,16 +12,12 @@ export const metadata: Metadata = {
 
 export default function PetiteEnfancePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl font-semibold text-moss-dark sm:text-4xl">
-        Petite enfance & école
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted">
-        Accueil du jeune enfant, école et temps périscolaires. Les
-        communications du conseil d’école et les documents pédagogiques à jour
-        sont transmis par l’équipe enseignante ou l’école (courriel, cahier,
-        outil numérique).
-      </p>
+    <div>
+      <PageHero
+        title="Petite enfance & école"
+        description={<>Accueil du jeune enfant, école et temps périscolaires. Les communications du conseil d’école et les documents pédagogiques à jour sont transmis par l’équipe enseignante ou l’école (courriel, cahier, outil numérique).</>}
+      />
+      <div className="mx-auto max-w-3xl px-4 pb-12 pt-2 sm:px-6">
 
       <div className="mt-10 space-y-10 prose-site">
         <Section id="ribambelle" title="Halte-garderie itinérante CAPI « La Ribambelle »">
@@ -93,6 +90,7 @@ export default function PetiteEnfancePage() {
           </p>
         </Section>
       </div>
+    </div>
     </div>
   );
 }
