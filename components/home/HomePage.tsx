@@ -20,20 +20,12 @@ function Hero() {
   return (
     <section aria-labelledby="accueil-titre" className="relative bg-moss-dark">
       <div className="grid lg:min-h-[560px] lg:grid-cols-[1fr_1.15fr]">
-        <div className="relative order-2 overflow-hidden px-4 pb-24 pt-10 sm:px-8 lg:order-1 lg:pb-32 lg:pl-[max(2rem,calc((100vw-72rem)/2+2rem))] lg:pr-12 lg:pt-16">
-          <span className="etourneau absolute -left-6 bottom-10 w-40 text-white/[0.07] lg:w-64" aria-hidden />
+        <div className="relative order-2 overflow-hidden px-4 pb-24 pt-12 sm:px-8 lg:order-1 lg:pb-36 lg:pl-[max(2rem,calc((100vw-72rem)/2+2rem))] lg:pr-12 lg:pt-20">
           <div className="relative max-w-xl">
-            <h1
-              id="accueil-titre"
-              className="font-display flex items-center gap-3 text-2xl font-extrabold tracking-tight text-white sm:text-3xl"
-            >
-              <span className="etourneau w-8 text-colza sm:w-9" aria-hidden />
-              Succieu
-              <span className="sr-only"> — {intro}</span>
+            <h1 id="accueil-titre" className="sr-only">
+              Mairie de Succieu — {intro}
             </h1>
-            <div className="mt-8 lg:mt-10">
-              <NewsCarousel items={homeSpotlightItems} />
-            </div>
+            <NewsCarousel items={homeSpotlightItems} />
           </div>
         </div>
         <div className="relative order-1 h-[280px] sm:h-[380px] lg:order-2 lg:h-auto">
