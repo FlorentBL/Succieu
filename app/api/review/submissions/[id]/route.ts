@@ -15,6 +15,6 @@ export const POST = handle<{ params: Promise<{ id: string }> }>(async (req, ctx)
   requireReviewToken(req);
   const { id } = await ctx.params;
   const current = await getSubmission(id);
-  const review = parseReview(current.kind, await readJsonBody(req));
+  const review = await parseReview(current.kind, await readJsonBody(req));
   return ok({ submission: await submitReview(id, review) });
 });

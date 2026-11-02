@@ -22,6 +22,16 @@ function fields(fn: () => unknown): Record<string, string> {
   assert.fail("validation attendue en échec");
 }
 
+async function rejected(fn: () => Promise<unknown>): Promise<Record<string, string>> {
+  try {
+    await fn();
+  } catch (e) {
+    assert.ok(e instanceof AppError);
+    return e.fields ?? {};
+  }
+  assert.fail("validation attendue en échec");
+}
+
 test("article valide : champs facultatifs omis, texte nettoyé", () => {
   const out = parseArticleFields({ ...article, title: "  Titre  ", linkUrl: "", extra: 1 });
   assert.deepEqual(out, { ...article });
@@ -56,10 +66,10 @@ test("événement : heures incohérentes ou mal formées", () => {
   assert.ok(fields(() => parseEventFields(null)) !== undefined);
 });
 
-test("avis : structure et version corrigée validée", () => {
-  const r = parseReview("event", { ok: false, issues: ["Faute"], summary: "Résumé", corrected: event });
+test("avis : structure et version corrigée validée", async () => {
+  const r = await parseReview("event", { ok: false, issues: ["Faute"], summary: "Résumé", corrected: event });
   assert.equal(r.ok, false);
-  const f = fields(() => parseReview("event", { ok: "oui", summary: "", corrected: { title: "x" } }));
+  const f = await rejected(() => parseReview("event", { ok: "oui", summary: "", corrected: { title: "x" } }));
   assert.ok(f.ok && f.summary && f["corrected.date"]);
 });
 
