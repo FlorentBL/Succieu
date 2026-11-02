@@ -120,8 +120,8 @@ export function ArticleForm({ onDone }: { onDone: (s: Submission) => void }) {
       setPreview(null);
       return;
     }
-    if (f.size > 3 * 1024 * 1024) {
-      setFileError("Image : 3 Mo maximum.");
+    if (f.size > 40 * 1024 * 1024) {
+      setFileError("Image : 40 Mo maximum.");
       setFile(null);
       setPreview(null);
       return;
@@ -166,7 +166,7 @@ export function ArticleForm({ onDone }: { onDone: (s: Submission) => void }) {
         <label htmlFor="article-image" className="block text-[0.95rem] font-semibold text-ink">
           Image <span className="font-normal text-ink-muted">(facultatif)</span>
         </label>
-        <p id="article-image-hint" className="mt-0.5 text-sm text-ink-muted">jpeg, png ou webp, 3 Mo maximum.</p>
+        <p id="article-image-hint" className="mt-0.5 text-sm text-ink-muted">Photo jpeg, png ou webp. Elle est automatiquement allégée pour le site.</p>
         <input
           ref={fileInput}
           id="article-image"

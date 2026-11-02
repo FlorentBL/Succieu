@@ -32,7 +32,7 @@ Champs article : `title` (≤ 90), `summary` (chapeau carrousel, ≤ 280), `body
 
 Champs événement : `title` (≤ 90), `date` (AAAA-MM-JJ), `startTime?`, `endTime?` (HH:MM ; fin ≥ début, fin exige début), `place` (≤ 120), `description` (≤ 2000), `linkUrl?`.
 
-Images : jpeg/png/webp, 3 Mo max, type vérifié par signature, renommée aléatoirement, servie par `GET /api/uploads/<nom>`.
+Images : jpeg/png/webp en entrée (type vérifié par signature), plafond technique 40 Mo. Chaque image est redressée (EXIF), réduite à 2 000 px de côté maximum, convertie en WebP qualité 80 sans métadonnées (GPS supprimé) par sharp, renommée aléatoirement (`<hex>.webp`) et servie par `GET /api/uploads/<nom>`. Les anciens noms `.jpg`/`.png` restent lisibles. En production, nginx doit accepter ces envois : `client_max_body_size 41m;` sur succieu.fr.
 
 Transitions (`lib/content/transitions.ts`) : `submitted → reviewed` (agent) ; `submitted|reviewed → published|rejected` (admin) ; `published` et `rejected` sont terminaux. Publier `"corrected"` exige un avis. Chaque transition ajoute une entrée d'historique (`by` : nom du bureau, `agent`, `admin`).
 
@@ -81,7 +81,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | `bad_origin` | 403 | Origine refusée sur une écriture. |
 | `not_found` | 404 | Saisie ou image introuvable. |
 | `invalid_transition` | 409 | Transition interdite depuis le statut courant, ou version corrigée absente. |
-| `payload_too_large` | 413 | Image > 3 Mo. |
+| `payload_too_large` | 413 | Image > 40 Mo. |
 | `unsupported_media` | 415 | Image non jpeg/png/webp. |
 | `validation_failed` | 422 | Champs invalides : `error.fields` = `{ champ: message lisible }` (avis : `corrected.<champ>`). |
 | `rate_limited` | 429 | Trop de tentatives de connexion (`Retry-After`). |

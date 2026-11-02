@@ -1,10 +1,18 @@
 import { randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
+import sharp from "sharp";
 import { AppError } from "./errors";
 import { IMAGE_NAME_RE } from "./validation";
 import { dataPath, writeFileAtomic } from "./storage";
 
-export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+/**
+ * Plafond technique du fichier envoyé, très au-dessus d’une photo de téléphone :
+ * il protège seulement la mémoire du serveur. L’image est ensuite convertie en WebP.
+ */
+export const MAX_IMAGE_BYTES = 40 * 1024 * 1024;
+/** Plus grand côté de l’image enregistrée, en pixels. */
+export const IMAGE_MAX_SIDE = 2000;
+const WEBP_QUALITY = 80;
 
 export const IMAGE_TYPES = {
   jpg: "image/jpeg",
@@ -32,20 +40,33 @@ export function detectImageExt(buf: Uint8Array): "jpg" | "png" | "webp" | null {
   return null;
 }
 
-/** Valide et enregistre l'image sous un nom aléatoire ; retourne ce nom. */
+/**
+ * Valide l’image, la redresse selon son orientation EXIF, la réduit à IMAGE_MAX_SIDE px,
+ * la convertit en WebP sans métadonnées (dont la position GPS) et l’enregistre sous un nom
+ * aléatoire ; retourne ce nom.
+ */
 export async function saveImage(buf: Buffer): Promise<string> {
   if (buf.length === 0) {
     throw new AppError("validation_failed", "Fichier vide.");
   }
   if (buf.length > MAX_IMAGE_BYTES) {
-    throw new AppError("payload_too_large", "Image trop lourde (3 Mo maximum).");
+    throw new AppError("payload_too_large", "Image trop lourde (40 Mo maximum).");
   }
-  const ext = detectImageExt(buf);
-  if (!ext) {
+  if (!detectImageExt(buf)) {
     throw new AppError("unsupported_media", "Format d'image non accepté (jpeg, png ou webp).");
   }
-  const name = `${randomBytes(16).toString("hex")}.${ext}`;
-  await writeFileAtomic(dataPath("uploads", name), buf);
+  let webp: Buffer;
+  try {
+    webp = await sharp(buf, { limitInputPixels: 120_000_000 })
+      .rotate()
+      .resize({ width: IMAGE_MAX_SIDE, height: IMAGE_MAX_SIDE, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: WEBP_QUALITY })
+      .toBuffer();
+  } catch {
+    throw new AppError("unsupported_media", "Image illisible ou endommagée.");
+  }
+  const name = `${randomBytes(16).toString("hex")}.webp`;
+  await writeFileAtomic(dataPath("uploads", name), webp);
   return name;
 }
 

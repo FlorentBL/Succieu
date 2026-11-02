@@ -12,7 +12,7 @@ export const POST = handle(async (req) => {
   await requireBureau();
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > MAX_IMAGE_BYTES + 64 * 1024) {
-    throw new AppError("payload_too_large", "Image trop lourde (3 Mo maximum).");
+    throw new AppError("payload_too_large", "Image trop lourde (40 Mo maximum).");
   }
   let form: FormData;
   try {

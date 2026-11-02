@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import sharp from "sharp";
 import { detectImageExt, imageExists, saveImage } from "./images";
 import { parseReview } from "./validation";
 import { createSubmission, getPublishedArticles, getUpcomingEvents, getSubmission, publishSubmission, listSubmissions, submitReview } from "./store";
@@ -48,10 +49,20 @@ test("images : signatures jpeg/png/webp, rejet du reste", async () => {
   assert.equal(detectImageExt(png), "png");
   assert.equal(detectImageExt(webp), "webp");
   assert.equal(detectImageExt(Buffer.from("<svg></svg>")), null);
-  const name = await saveImage(jpg);
-  assert.match(name, /^[a-f0-9]{32}\.jpg$/);
+  const big = await sharp({ create: { width: 3000, height: 1500, channels: 3, background: "#2f7a34" } })
+    .jpeg()
+    .withMetadata({ exif: { IFD0: { Copyright: "secret" } } })
+    .toBuffer();
+  const name = await saveImage(big);
+  assert.match(name, /^[a-f0-9]{32}\.webp$/);
+  const meta = await sharp(await fs.readFile(path.join(process.env.DATA_DIR!, "uploads", name))).metadata();
+  assert.equal(meta.format, "webp");
+  assert.equal(meta.width, 2000);
+  assert.equal(meta.height, 1000);
+  assert.equal(meta.exif, undefined);
+  await assert.rejects(saveImage(jpg), { code: "unsupported_media" });
   await assert.rejects(saveImage(Buffer.from("GIF89a....")), { code: "unsupported_media" });
-  await assert.rejects(saveImage(Buffer.alloc(3 * 1024 * 1024 + 1, 0xff)), { code: "payload_too_large" });
+  await assert.rejects(saveImage(Buffer.alloc(40 * 1024 * 1024 + 1, 0xff)), { code: "payload_too_large" });
 });
 
 test("cycle complet : saisie, relecture, publication, lecture publique", async () => {
@@ -90,7 +101,7 @@ test("avis : une image corrigée inexistante est refusée, une image existante a
     () => parseReview("article", { ok: true, summary: "r", corrected: { ...art, image: ghost } }, imageExists),
     (e: unknown) => (e as { fields?: Record<string, string> }).fields?.["corrected.image"] !== undefined,
   );
-  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(16)]);
+  const png = await sharp({ create: { width: 40, height: 40, channels: 3, background: "#ffffff" } }).png().toBuffer();
   const name = await saveImage(png);
   const r = await parseReview("article", { ok: true, summary: "r", corrected: { ...art, image: name } }, imageExists);
   assert.equal((r.corrected as { image?: string }).image, name);
