@@ -29,7 +29,7 @@ export async function login(
       : false;
   if (!valid || !nameAllowed) {
     recordFailure(key);
-    throw new AppError("unauthorized", "Nom ou mot de passe incorrect.");
+    throw new AppError("unauthorized", "Mot de passe incorrect.");
   }
   clearFailures(key);
   const res = ok({ ok: true, role, name });

@@ -1,49 +1,40 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Submission } from "@/lib/content/types";
 import { Card } from "@/components/ui/Card";
 import { IconDocument, IconClock } from "@/components/icons/UiIcons";
-import { ApiError, getNames, getSession, getSubmissions, login, logout } from "./api";
+import { ApiError, chooseName, getNames, getSession, getSubmissions, login, logout } from "./api";
 import { ArticleForm, EventForm } from "./SubmissionForms";
-import { Button, Notice, SelectField, TextField, focusRing } from "./fields";
+import { Button, Notice, TextField, focusRing } from "./fields";
 import { History } from "./History";
 
-function LoginCard({ onLoggedIn }: { onLoggedIn: (name: string) => void }) {
-  const [names, setNames] = useState<string[]>([]);
-  const [name, setName] = useState("");
+function PasswordCard({ onLoggedIn }: { onLoggedIn: () => void }) {
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    getNames().then(setNames).catch(() => setMessage("La liste des noms n’a pas pu être chargée. Rechargez la page."));
-  }, []);
-
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
-    const errs: Record<string, string> = {};
-    if (!name) errs.name = "Choisissez votre nom dans la liste.";
-    if (!password) errs.password = "Saisissez le mot de passe du bureau.";
-    setErrors(errs);
     setMessage("");
-    if (Object.keys(errs).length) {
-      document.getElementById(errs.name ? "login-name" : "login-password")?.focus();
+    if (!password) {
+      setError("Saisissez le mot de passe du bureau.");
+      document.getElementById("login-password")?.focus();
       return;
     }
+    setError("");
     setBusy(true);
     try {
-      const r = await login(name, password);
-      onLoggedIn(r.name);
+      await login(password);
+      onLoggedIn();
     } catch (e) {
       const err = e as ApiError;
       if (err.code === "rate_limited") {
         const min = err.retryAfter ? Math.max(1, Math.ceil(err.retryAfter / 60)) : null;
         setMessage(`Trop de tentatives. Patientez ${min ? `environ ${min} minute${min > 1 ? "s" : ""}` : "quelques minutes"} avant de réessayer.`);
       } else if (err.code === "unauthorized") {
-        setErrors({ password: "Mot de passe incorrect (ou nom non autorisé). Vérifiez et réessayez." });
+        setError("Mot de passe incorrect. Vérifiez et réessayez.");
         setPassword("");
         document.getElementById("login-password")?.focus();
       } else if (err.code === "server_misconfigured") {
@@ -61,20 +52,71 @@ function LoginCard({ onLoggedIn }: { onLoggedIn: (name: string) => void }) {
       <h2 className="font-display text-2xl font-bold text-moss-dark">Connexion</h2>
       <p className="mt-1 text-ink-muted">Réservé aux membres du bureau.</p>
       <form noValidate onSubmit={submit} className="mt-5 space-y-5">
-        <SelectField id="login-name" label="Votre nom" value={name} onChange={setName} options={names}
-          placeholder="Choisir dans la liste" error={errors.name} />
         <TextField id="login-password" label="Mot de passe du bureau" type="password" autoComplete="current-password"
-          value={password} onChange={setPassword} error={errors.password} />
+          value={password} onChange={setPassword} error={error} />
         {message ? <Notice tone="error">{message}</Notice> : null}
         <Button type="submit" disabled={busy} className="w-full sm:w-auto">
           {busy ? "Connexion…" : "Se connecter"}
         </Button>
       </form>
-      <p className="mt-6 border-t border-border-subtle pt-4 text-sm text-ink-muted">
-        Validation des publications :{" "}
-        <Link href="/espace-bureau/moderation" className={`font-semibold text-moss-dark underline underline-offset-4 ${focusRing}`}>
-          accès modération
-        </Link>
+    </Card>
+  );
+}
+
+function NameCard({ onChosen, onLogout }: { onChosen: (name: string) => void; onLogout: () => void }) {
+  const [names, setNames] = useState<string[] | null>(null);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    getNames()
+      .then(setNames)
+      .catch((e) => {
+        if ((e as ApiError).code === "unauthorized") onLogout();
+        else setMessage("La liste des noms n’a pas pu être chargée. Rechargez la page.");
+      });
+  }, [onLogout]);
+
+  async function pick(name: string) {
+    setBusy(name);
+    setMessage("");
+    try {
+      onChosen(await chooseName(name));
+    } catch (e) {
+      const err = e as ApiError;
+      if (err.code === "unauthorized") onLogout();
+      else setMessage(err.message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Card className="mt-2 max-w-xl">
+      <h2 className="font-display text-2xl font-bold text-moss-dark">Qui êtes-vous ?</h2>
+      <p className="mt-1 text-ink-muted">Votre nom accompagnera vos saisies.</p>
+      {names === null && !message ? <p className="mt-5 text-ink-muted" role="status">Chargement…</p> : null}
+      {names ? (
+        <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {names.map((n) => (
+            <li key={n}>
+              <button
+                type="button"
+                onClick={() => pick(n)}
+                disabled={busy !== null}
+                className={`flex min-h-14 w-full items-center justify-center rounded-2xl border border-border-subtle bg-pre-pale px-3 text-base font-semibold text-moss-dark transition hover:border-moss hover:bg-moss hover:text-white disabled:opacity-60 ${focusRing}`}
+              >
+                {busy === n ? "…" : n}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {message ? <div className="mt-4"><Notice tone="error">{message}</Notice></div> : null}
+      <p className="mt-6 text-sm">
+        <button type="button" onClick={onLogout} className={`text-ink-muted underline underline-offset-4 hover:text-ink ${focusRing}`}>
+          Se déconnecter
+        </button>
       </p>
     </Card>
   );
@@ -82,7 +124,7 @@ function LoginCard({ onLoggedIn }: { onLoggedIn: (name: string) => void }) {
 
 type Tab = "article" | "event";
 
-function Dashboard({ name, onLogout }: { name: string; onLogout: () => void }) {
+function Dashboard({ name, onLogout, onChangeName }: { name: string; onLogout: () => void; onChangeName: () => void }) {
   const [tab, setTab] = useState<Tab>("article");
   const [items, setItems] = useState<Submission[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,7 +164,10 @@ function Dashboard({ name, onLogout }: { name: string; onLogout: () => void }) {
     <>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-pre-pale px-4 py-3">
         <p className="text-[0.95rem] text-ink">
-          Connecté·e : <strong>{name}</strong>
+          Connecté·e : <strong>{name}</strong>{" "}
+          <button type="button" onClick={onChangeName} className={`ml-1 text-sm text-ink-muted underline underline-offset-4 hover:text-ink ${focusRing}`}>
+            changer
+          </button>
         </p>
         <Button variant="ghost" className="!min-h-11 !px-5 text-[0.95rem]" onClick={onLogout}>
           Se déconnecter
@@ -167,13 +212,15 @@ function Dashboard({ name, onLogout }: { name: string; onLogout: () => void }) {
   );
 }
 
+type AppState = { ready: boolean; authenticated: boolean; name: string | null };
+
 export function BureauApp() {
-  const [state, setState] = useState<{ ready: boolean; name?: string }>({ ready: false });
+  const [state, setState] = useState<AppState>({ ready: false, authenticated: false, name: null });
 
   useEffect(() => {
     getSession()
-      .then((s) => setState({ ready: true, name: s.authenticated ? s.name : undefined }))
-      .catch(() => setState({ ready: true }));
+      .then((s) => setState({ ready: true, authenticated: s.authenticated, name: s.name ?? null }))
+      .catch(() => setState({ ready: true, authenticated: false, name: null }));
   }, []);
 
   const doLogout = useCallback(async () => {
@@ -182,10 +229,21 @@ export function BureauApp() {
     } catch {
       /* le cookie expire de toute façon */
     }
-    setState({ ready: true });
+    setState({ ready: true, authenticated: false, name: null });
   }, []);
 
   if (!state.ready) return <p className="mt-4 text-ink-muted" role="status">Chargement…</p>;
-  if (!state.name) return <LoginCard onLoggedIn={(name) => setState({ ready: true, name })} />;
-  return <Dashboard name={state.name} onLogout={doLogout} />;
+  if (!state.authenticated) {
+    return <PasswordCard onLoggedIn={() => setState({ ready: true, authenticated: true, name: null })} />;
+  }
+  if (!state.name) {
+    return <NameCard onLogout={doLogout} onChosen={(name) => setState({ ready: true, authenticated: true, name })} />;
+  }
+  return (
+    <Dashboard
+      name={state.name}
+      onLogout={doLogout}
+      onChangeName={() => setState({ ready: true, authenticated: true, name: null })}
+    />
+  );
 }

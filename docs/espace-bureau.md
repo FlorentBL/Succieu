@@ -40,7 +40,7 @@ Fonctions serveur réutilisables (`lib/content/store.ts`) : `getPublishedArticle
 
 ## Authentification
 
-- Bureau : `POST /api/bureau/login` avec le nom (présent dans `bureau.json`) + mot de passe commun. Admin : mot de passe seul.
+- Bureau, en deux étapes : `POST /api/bureau/login` avec le mot de passe commun seul (session sans nom), puis `POST /api/bureau/identity` avec un nom de `bureau.json` (la session porte alors ce nom ; « changer » refait cette étape). La liste des noms n'est visible qu'après le mot de passe. Saisies et historique exigent un nom. Admin : mot de passe seul.
 - Cookies `succieu_bureau` / `succieu_admin` : jeton `base64url(JSON).HMAC-SHA256`, httpOnly, `Secure` en production, `SameSite=Strict`, 8 h.
 - Toute requête qui écrit (POST) doit porter `Origin` (ou `Referer`) identique à l'hôte du site (`Host`/`X-Forwarded-Host`) ou listé dans `SITE_ORIGINS`, sinon `bad_origin`. Les routes de relecture agent (Bearer) n'utilisent pas de cookie et sont exemptées.
 - Connexion : 5 échecs / 15 min par IP (en mémoire, par processus) puis `rate_limited` avec `Retry-After`.
@@ -51,10 +51,11 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 | Méthode et chemin | Accès | Description |
 |---|---|---|
-| `GET /api/bureau/names` | public | `{ names }` pour le sélecteur de connexion. |
-| `POST /api/bureau/login` | public | `{ name, password }` → `{ ok, role, name }` + cookie. |
+| `GET /api/bureau/names` | bureau (mot de passe) | `{ names }` pour le choix du nom. |
+| `POST /api/bureau/login` | public | `{ password }` → `{ ok, role, name: "" }` + cookie (session sans nom). |
+| `POST /api/bureau/identity` | bureau (mot de passe) + origine | `{ name }` (présent dans `bureau.json`) → `{ ok, name }` + cookie nommé ; 422 si nom inconnu. |
 | `POST /api/bureau/logout` | origine | Efface le cookie. |
-| `GET /api/bureau/session` | public | `{ authenticated, name? }`. |
+| `GET /api/bureau/session` | public | `{ authenticated, name }` ; `name` = null tant que le nom n'est pas choisi. |
 | `POST /api/bureau/uploads` | bureau | multipart, champ `file` → 201 `{ image, url }` ; `image` à placer dans `fields.image`. |
 | `GET /api/bureau/submissions` | bureau | `{ submissions }` : toutes les saisies de l'auteur (statut, avis, motif). |
 | `POST /api/bureau/submissions` | bureau | `{ kind, fields }` → 201 `{ submission }` (statut `submitted`). |

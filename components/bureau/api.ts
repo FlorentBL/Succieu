@@ -40,9 +40,10 @@ const json = (body: unknown): RequestInit => ({
 });
 
 export const getNames = () => call<{ names: string[] }>("/api/bureau/names").then((r) => r.names);
-export const getSession = () => call<{ authenticated: boolean; name?: string }>("/api/bureau/session");
-export const login = (name: string, password: string) =>
-  call<{ ok: true; name: string }>("/api/bureau/login", json({ name, password }));
+export const getSession = () => call<{ authenticated: boolean; name?: string | null }>("/api/bureau/session");
+export const login = (password: string) => call<{ ok: true }>("/api/bureau/login", json({ password }));
+export const chooseName = (name: string) =>
+  call<{ ok: true; name: string }>("/api/bureau/identity", json({ name })).then((r) => r.name);
 export const logout = () => call<{ ok: true }>("/api/bureau/logout", { method: "POST" });
 export const getSubmissions = () =>
   call<{ submissions: Submission[] }>("/api/bureau/submissions").then((r) => r.submissions);

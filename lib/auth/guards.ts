@@ -9,16 +9,34 @@ async function sessionOf(role: SessionRole): Promise<Session | null> {
   return verifySessionToken(jar.get(COOKIE_NAMES[role])?.value, role);
 }
 
-export async function getBureauSession(): Promise<Session | null> {
+/**
+ * Session du bureau après le mot de passe. Le nom est vide tant que le membre
+ * ne l'a pas choisi (étape 2 de la connexion).
+ */
+export async function getBureauAccess(): Promise<Session | null> {
   const s = await sessionOf("bureau");
+  if (!s) return null;
   // un nom retiré de bureau.json perd immédiatement l'accès
-  return s && (await isBureauMember(s.name)) ? s : null;
+  return s.name === "" || (await isBureauMember(s.name)) ? s : null;
+}
+
+/** Session du bureau avec un nom choisi : nécessaire pour saisir et consulter l'historique. */
+export async function getBureauSession(): Promise<Session | null> {
+  const s = await getBureauAccess();
+  return s && s.name !== "" ? s : null;
 }
 
 export const getAdminSession = () => sessionOf("admin");
 
 export async function requireBureau(): Promise<Session> {
   const s = await getBureauSession();
+  if (!s) throw new AppError("unauthorized", "Connexion du bureau requise.");
+  return s;
+}
+
+/** Mot de passe validé, nom pas forcément choisi (liste des noms, choix du nom). */
+export async function requireBureauAccess(): Promise<Session> {
+  const s = await getBureauAccess();
   if (!s) throw new AppError("unauthorized", "Connexion du bureau requise.");
   return s;
 }
