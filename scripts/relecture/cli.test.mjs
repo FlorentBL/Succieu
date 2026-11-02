@@ -62,7 +62,7 @@ test("message Discord : contenu, lien, mentions désactivées, troncature", () =
 
 test("notify : lit la saisie puis poste sur le webhook", async () => {
   const calls = [];
-  const fetchFn = async (url, opt) => {
+  const fetchFn = async (url) => {
     calls.push(url);
     return url === env.DISCORD_WEBHOOK_URL ? { ok: true, status: 204 } : json({ submission: { id: ID, kind: "event", author: "A", original: { title: "Fête" } } });
   };
