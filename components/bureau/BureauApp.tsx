@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Submission } from "@/lib/content/types";
 import { Card } from "@/components/ui/Card";
@@ -69,6 +70,12 @@ function LoginCard({ onLoggedIn }: { onLoggedIn: (name: string) => void }) {
           {busy ? "Connexion…" : "Se connecter"}
         </Button>
       </form>
+      <p className="mt-6 border-t border-border-subtle pt-4 text-sm text-ink-muted">
+        Validation des publications :{" "}
+        <Link href="/espace-bureau/moderation" className={`font-semibold text-moss-dark underline underline-offset-4 ${focusRing}`}>
+          accès modération
+        </Link>
+      </p>
     </Card>
   );
 }

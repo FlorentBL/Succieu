@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteLogo } from "@/components/layout/SiteLogo";
+import { IconLock } from "@/components/icons/UiIcons";
 import { HillArc } from "@/components/ui/HillArc";
 import { MairieOpeningHours } from "@/components/ui/MairieOpeningHours";
 import { siteConfig } from "@/lib/site";
@@ -79,10 +80,19 @@ export function SiteFooter() {
               </ul>
             </div>
           </div>
-          <p className="mt-12 border-t border-white/15 pt-6 text-xs leading-relaxed text-white/70">
-            © {year} {siteConfig.name}. Informations sous réserve de validation
-            municipale.
-          </p>
+          <div className="mt-12 flex flex-col gap-3 border-t border-white/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-relaxed text-white/70">
+              © {year} {siteConfig.name}. Informations sous réserve de validation
+              municipale.
+            </p>
+            <Link
+              href="/espace-bureau"
+              className="inline-flex min-h-11 items-center gap-2 self-start rounded-full border border-white/25 px-4 text-sm text-white/85 transition hover:border-colza hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:self-auto"
+            >
+              <IconLock className="h-4 w-4" />
+              Espace bureau municipal
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
