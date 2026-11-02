@@ -1,4 +1,5 @@
 import { AppError } from "./errors";
+import { imageExists } from "./images";
 import type {
   ArticleFields,
   ContentFields,
@@ -200,7 +201,7 @@ export function parseKind(v: unknown): SubmissionKind {
 
 export type ReviewInput = Omit<Review, "reviewedAt">;
 
-export function parseReview(kind: SubmissionKind, input: unknown): ReviewInput {
+export async function parseReview(kind: SubmissionKind, input: unknown): Promise<ReviewInput> {
   const src = asObject(input);
   const errors: Errors = {};
   if (typeof src.ok !== "boolean") errors.ok = "ok : booléen attendu.";
@@ -223,6 +224,12 @@ export function parseReview(kind: SubmissionKind, input: unknown): ReviewInput {
     if (e instanceof AppError && e.fields) {
       for (const [k, v] of Object.entries(e.fields)) errors[`corrected.${k}`] = v;
     } else errors.corrected = "corrected : objet attendu.";
+  }
+  if (kind === "article" && corrected) {
+    const img = (corrected as ArticleFields).image;
+    if (img && !(await imageExists(img))) {
+      errors["corrected.image"] = "Image : fichier introuvable, renvoyez-le.";
+    }
   }
   if (Object.keys(errors).length) fail(errors);
   return { ok: src.ok as boolean, issues, summary: summary!, corrected: corrected! };

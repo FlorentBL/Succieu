@@ -99,3 +99,9 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 ## Interface (`/espace-bureau`)
 
 Page client unique (`components/bureau/`) : connexion (nom + mot de passe commun), onglets « Actualités » / « Rendez-vous », historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie). Page `noindex`, absente du sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`). La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi.
+
+## Pages de modération (`/espace-bureau/moderation`)
+
+Pages `noindex`, rendues côté client et alimentées uniquement par les routes `/api/admin/*` (session admin, connexion sur place : l'URL demandée reste affichée après connexion). `/espace-bureau/moderation` liste les saisies (onglets « À traiter » / « Traitées ») ; `/espace-bureau/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire, captures dans `SHOTS_DIR`).
+
+`parseReview` est asynchrone : il refuse une `corrected.image` introuvable (comme `createSubmission`).

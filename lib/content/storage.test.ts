@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
 import { detectImageExt, saveImage } from "./images";
+import { parseReview } from "./validation";
 import { createSubmission, getPublishedArticles, getUpcomingEvents, getSubmission, publishSubmission, listSubmissions, submitReview } from "./store";
 import { readJson, updateJson, withLock, writeFileAtomic } from "./storage";
 
@@ -80,4 +81,17 @@ test("cycle complet : saisie, relecture, publication, lecture publique", async (
   await assert.rejects(getSubmission("a-ffffffffffffffff"), { code: "not_found" });
   await assert.rejects(getSubmission("../etc"), { code: "not_found" });
   await assert.rejects(createSubmission("A", "article", { ...art, image: "0".repeat(32) + ".png" }), { code: "validation_failed" });
+});
+
+test("avis : une image corrigée inexistante est refusée, une image existante acceptée", async () => {
+  const art = { title: "T", summary: "S", body: "B", publishedAt: "2026-11-02" };
+  const ghost = "0".repeat(32) + ".jpg";
+  await assert.rejects(
+    () => parseReview("article", { ok: true, summary: "r", corrected: { ...art, image: ghost } }),
+    (e: unknown) => (e as { fields?: Record<string, string> }).fields?.["corrected.image"] !== undefined,
+  );
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(16)]);
+  const name = await saveImage(png);
+  const r = await parseReview("article", { ok: true, summary: "r", corrected: { ...art, image: name } });
+  assert.equal((r.corrected as { image?: string }).image, name);
 });
