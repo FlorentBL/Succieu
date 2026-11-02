@@ -422,6 +422,7 @@ function Comparison({ sub }: { sub: Submission }) {
           <div key={r.key} className="rounded-[1.25rem] border border-border-subtle bg-surface p-4 sm:p-5">
             <h4 className="font-semibold text-ink">
               {FIELD_LABELS[r.key]}
+              {review ? " " : null}
               {review ? (
                 <span
                   className={`ml-2 rounded-full px-2 py-0.5 text-sm font-semibold ${

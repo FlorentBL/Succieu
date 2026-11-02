@@ -91,3 +91,9 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 ## Tests
 
 `npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou.
+
+## Pages de modération (`/espace-bureau/moderation`)
+
+Pages `noindex`, rendues côté client et alimentées uniquement par les routes `/api/admin/*` (session admin, connexion sur place : l'URL demandée reste affichée après connexion). `/espace-bureau/moderation` liste les saisies (onglets « À traiter » / « Traitées ») ; `/espace-bureau/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire, captures dans `SHOTS_DIR`).
+
+`parseReview` est asynchrone : il refuse une `corrected.image` introuvable (comme `createSubmission`).

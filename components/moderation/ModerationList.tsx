@@ -114,7 +114,7 @@ export function ModerationList() {
                     <StatusBadge status={s.status} />
                   </span>
                   <span className="font-display mt-3 block text-xl font-bold text-ink">
-                    {s.original.title}
+                    {s.published?.fields.title ?? s.original.title}
                   </span>
                   <span className="mt-1 block text-ink-muted">
                     Par {s.author} · {formatDateTime(s.createdAt)}
