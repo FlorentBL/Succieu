@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // CLI de l'agent relecteur : show, submit-review, notify.
-// Env : SUCCIEU_BASE_URL, REVIEW_API_TOKEN, DISCORD_WEBHOOK_ALERTES_MAIRIE (notify ; DISCORD_WEBHOOK_URL accepté en repli).
+// Env : REVIEW_API_TOKEN, SUCCIEU_BASE_URL (défaut https://succieu.fr), DISCORD_WEBHOOK_ALERTES_MAIRIE (notify ; DISCORD_WEBHOOK_URL accepté en repli).
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,8 +33,8 @@ export function validateReview(r) {
 }
 
 async function api(env, fetchFn, method, route, body) {
-  const base = (env.SUCCIEU_BASE_URL || "").replace(/\/+$/, "");
-  if (!base || !env.REVIEW_API_TOKEN) throw new Error("Variables manquantes : SUCCIEU_BASE_URL, REVIEW_API_TOKEN.");
+  const base = (env.SUCCIEU_BASE_URL || "https://succieu.fr").replace(/\/+$/, "");
+  if (!env.REVIEW_API_TOKEN) throw new Error("Variable manquante : REVIEW_API_TOKEN (secret injecté).");
   const res = await fetchFn(`${base}${route}`, {
     method,
     headers: {
@@ -106,7 +106,7 @@ export async function notify(id, { env = process.env, fetchFn = fetch } = {}) {
   const hook = env.DISCORD_WEBHOOK_ALERTES_MAIRIE || env.DISCORD_WEBHOOK_URL;
   if (!hook) throw new Error("DISCORD_WEBHOOK_ALERTES_MAIRIE manquante.");
   const sub = await show(id, { env, fetchFn });
-  const payload = buildDiscordPayload(sub, env.SUCCIEU_BASE_URL);
+  const payload = buildDiscordPayload(sub, env.SUCCIEU_BASE_URL || "https://succieu.fr");
   const res = await fetchFn(hook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

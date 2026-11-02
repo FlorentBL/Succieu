@@ -1,12 +1,33 @@
 #!/usr/bin/env node
 // Relève les saisies « submitted » et confie chacune (une seule fois) à l'agent relecteur Timon.
-// Env : SUCCIEU_BASE_URL, REVIEW_API_TOKEN, RELECTURE_STATE_FILE (hors dépôt), TIMON_BIN (facultatif).
+// Env : REVIEW_API_TOKEN (secret injecté) ; facultatifs : SUCCIEU_BASE_URL (défaut https://succieu.fr),
+// RELECTURE_STATE_FILE (défaut ~/.timon/state/succieu-relecture.json), TIMON_BIN (défaut : CLI de la
+// version active de Timon, puis « timon » du PATH). Un déclencheur Timon lance le script sans shell,
+// sans variables à lui et avec un PATH système : d'où ces valeurs par défaut.
 import { execFile } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ID_RE = /^[ae]-[0-9a-f]{16}$/;
+export const DEFAULT_BASE_URL = "https://succieu.fr";
+
+/** CLI timon de la version active du bureau Timon (hors PATH dans un déclencheur). */
+export function resolveTimonBin(env) {
+  if (env.TIMON_BIN) return env.TIMON_BIN;
+  const home = env.TIMON_HOME || (env.HOME ? path.join(env.HOME, ".timon") : "");
+  if (home) {
+    try {
+      const rel = readFileSync(path.join(home, "desktop-runtime", "active-release"), "utf8").trim();
+      const bin = path.join(home, "desktop-runtime", "releases", rel, "Timon.app", "Contents", "cli", "timon");
+      if (rel && existsSync(bin)) return bin;
+    } catch {
+      /* pas de bureau Timon : on tente le PATH */
+    }
+  }
+  return "timon";
+}
 const KINDS = { article: "article", event: "événement" };
 
 export function buildTaskArgs(sub) {
@@ -54,11 +75,12 @@ function defaultExec(bin, args) {
 
 /** Retourne { code, message }. Dépendances injectables pour les tests. */
 export async function poll({ env = process.env, fetchFn = fetch, exec = defaultExec, now = () => new Date() } = {}) {
-  const base = (env.SUCCIEU_BASE_URL || "").replace(/\/+$/, "");
+  const base = (env.SUCCIEU_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, "");
   const token = env.REVIEW_API_TOKEN;
-  const stateFile = env.RELECTURE_STATE_FILE;
-  if (!base || !token || !stateFile) {
-    return { code: 2, message: "Variables manquantes : SUCCIEU_BASE_URL, REVIEW_API_TOKEN, RELECTURE_STATE_FILE." };
+  const stateFile =
+    env.RELECTURE_STATE_FILE || (env.HOME ? path.join(env.HOME, ".timon", "state", "succieu-relecture.json") : "");
+  if (!token || !stateFile) {
+    return { code: 2, message: "Variables manquantes : REVIEW_API_TOKEN (secret injecté) ou HOME." };
   }
 
   let list;
@@ -84,7 +106,7 @@ export async function poll({ env = process.env, fetchFn = fetch, exec = defaultE
   const todo = list.filter((s) => s && ID_RE.test(s.id) && s.kind in KINDS && !state.handed[s.id]);
   if (todo.length === 0) return { code: 0, message: "Rien à faire." };
 
-  const bin = env.TIMON_BIN || "timon";
+  const bin = resolveTimonBin(env);
   let created = 0;
   const errors = [];
   for (const sub of todo) {
