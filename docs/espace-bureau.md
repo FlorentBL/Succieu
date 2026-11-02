@@ -91,3 +91,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 ## Tests
 
 `npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou.
+
+## Interface (`/espace-bureau`)
+
+Page client unique (`components/bureau/`) : connexion (nom + mot de passe commun), onglets « Actualités » / « Rendez-vous », historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie). Page `noindex`, absente du sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`). La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi.

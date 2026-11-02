@@ -5,6 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: ["/espace-bureau", "/api/"],
     },
     sitemap: "https://www.succieu.fr/sitemap.xml",
   };
