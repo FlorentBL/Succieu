@@ -95,3 +95,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 ## Pages publiques
 
 `/` (carrousel : 4 dernières actualités, complétées par `lib/homeSpotlight.ts` ; bande « Prochains rendez-vous »), `/actualites`, `/actualites/<id>`, `/agenda`, `/agenda/passes`. Logique dans `lib/publicContent.ts` (le marché du samedi matin, sans heure, est inséré à son prochain samedi, heure de Paris, jusqu'à 13 h). Pages en `revalidate = 60` en repli de `revalidatePath` ; le sitemap inclut les actualités publiées.
+
+## Interface (`/espace-bureau`)
+
+Page client unique (`components/bureau/`) : connexion (nom + mot de passe commun), onglets « Actualités » / « Rendez-vous », historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie). Page `noindex`, absente du sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`). La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi.
