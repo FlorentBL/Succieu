@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHero } from "@/components/ui/PageHero";
-import { communePhotos } from "@/lib/communePhotos";
 import { CouncilPhoto } from "@/components/council/CouncilPhoto";
 import { IconArrowRight } from "@/components/icons/UiIcons";
 import { PageShell } from "@/components/ui/PageShell";
@@ -23,7 +22,6 @@ export default function MaMairiePage() {
       <PageHero
         title="Ma Mairie"
         description={<>Institution, élus et vie communale.</>}
-        photo={communePhotos.eglise}
       />
       <PageShell className="pb-8 pt-6 sm:pt-10">
         <section aria-labelledby="elus-titre">
