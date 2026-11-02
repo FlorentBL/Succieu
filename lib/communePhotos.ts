@@ -13,6 +13,8 @@ export type CommunePhoto = {
   license: string;
   licenseUrl?: string;
   sourceUrl: string;
+  /** Photo recadrée ou retouchée : mention exigée par la licence CC BY-SA. */
+  modified?: boolean;
 };
 
 export const communePhotos = {
@@ -26,6 +28,7 @@ export const communePhotos = {
     license: "CC BY-SA 4.0",
     licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/deed.fr",
     sourceUrl: "https://commons.wikimedia.org/wiki/File:%C3%89glise_de_Succieu_(2).jpg",
+    modified: true,
   },
   cartePostale: {
     src: "/photos/commune/carte-postale-vue-generale.webp",

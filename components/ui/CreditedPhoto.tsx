@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { PhotoCredit } from "@/components/ui/PhotoCredit";
 import type { CommunePhoto } from "@/lib/communePhotos";
 
 /** Photo de la commune avec légende et crédit (auteur, licence, source). */
@@ -28,21 +29,7 @@ export function CreditedPhoto({
       />
       <figcaption className="mt-2 text-sm leading-snug text-ink-muted">
         {photo.caption}.{" "}
-        <span className="text-ink-subtle">
-          {photo.author ? "Photo " : null}
-          <a href={photo.sourceUrl} rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
-            {photo.author ?? "Wikimedia Commons"}
-          </a>
-          ,{" "}
-          {photo.licenseUrl ? (
-            <a href={photo.licenseUrl} rel="noopener noreferrer license" className="underline underline-offset-2 hover:text-ink">
-              {photo.license}
-            </a>
-          ) : (
-            photo.license
-          )}
-          .
-        </span>
+        <PhotoCredit photo={photo} className="text-ink-subtle" />.
       </figcaption>
     </figure>
   );
