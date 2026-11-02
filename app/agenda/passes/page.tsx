@@ -8,8 +8,8 @@ import { formatDayLong, getPastEvents } from "@/lib/publicContent";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Rendez-vous passés",
-  description: "Les rendez-vous passés à Succieu.",
+  title: "Événements passés",
+  description: "Les événements passés de l’agenda de Succieu.",
   alternates: { canonical: "/agenda/passes" },
 };
 
@@ -17,7 +17,7 @@ export default async function PastAgendaPage() {
   const items = await getPastEvents();
   return (
     <div>
-      <PageHero compact title="Rendez-vous passés" />
+      <PageHero compact title="Événements passés" />
       <PageShell className="pb-16 pt-8 sm:pb-20">
         <p>
           <Link href="/agenda" className="inline-flex min-h-11 items-center font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
@@ -25,7 +25,7 @@ export default async function PastAgendaPage() {
           </Link>
         </p>
         {items.length === 0 ? (
-          <p className="mt-4 text-lg text-ink-muted">Aucun rendez-vous passé.</p>
+          <p className="mt-4 text-lg text-ink-muted">Aucun événement passé.</p>
         ) : (
           <ul className="mt-4 space-y-4">
             {items.map((it, i) => (

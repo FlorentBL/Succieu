@@ -10,7 +10,7 @@ export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Agenda",
-  description: "Les prochains rendez-vous à Succieu : marché, réunions, animations et événements du village.",
+  description: "L’agenda de Succieu : marché, réunions, animations et événements du village.",
   alternates: { canonical: "/agenda" },
 };
 
@@ -25,7 +25,7 @@ export default async function AgendaPage() {
   }
   return (
     <div>
-      <PageHero compact title="Agenda" description="Tous les rendez-vous à venir à Succieu. Le marché a lieu chaque samedi matin." />
+      <PageHero compact title="Agenda" description="Tout ce qui se passe à Succieu dans les semaines à venir. Le marché a lieu chaque samedi matin." />
       <PageShell className="pb-16 pt-8 sm:pb-20">
         {months.map((m) => (
           <section key={m.key} aria-labelledby={`mois-${m.key}`} className="mb-10">
@@ -64,7 +64,7 @@ export default async function AgendaPage() {
         ))}
         <p>
           <Link href="/agenda/passes" className="inline-flex min-h-11 items-center font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
-            Voir les rendez-vous passés
+            Voir les événements passés
           </Link>
         </p>
       </PageShell>

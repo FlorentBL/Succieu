@@ -150,7 +150,7 @@ function Dashboard({ name, onLogout, onChangeName }: { name: string; onLogout: (
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "article", label: "Actualités", icon: <IconDocument className="h-5 w-5" /> },
-    { id: "event", label: "Rendez-vous", icon: <IconClock className="h-5 w-5" /> },
+    { id: "event", label: "Agenda", icon: <IconClock className="h-5 w-5" /> },
   ];
 
   function onKey(ev: React.KeyboardEvent) {
@@ -199,7 +199,7 @@ function Dashboard({ name, onLogout, onChangeName }: { name: string; onLogout: (
         <div key={t.id} role="tabpanel" id={`panel-${t.id}`} aria-labelledby={`tab-${t.id}`} hidden={tab !== t.id} className="mt-4">
           <Card>
             <h2 className="font-display text-2xl font-bold text-moss-dark">
-              {t.id === "article" ? "Proposer une actualité" : "Proposer un rendez-vous"}
+              {t.id === "article" ? "Proposer une actualité" : "Ajouter à l’agenda"}
             </h2>
             <p className="mb-5 mt-1 text-ink-muted">Les champs sans mention « facultatif » sont obligatoires.</p>
             {t.id === "article" ? <ArticleForm onDone={() => void load()} /> : <EventForm onDone={() => void load()} />}

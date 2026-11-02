@@ -4,7 +4,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { IconArrowRight, IconPin } from "@/components/icons/UiIcons";
 import { formatDayLong, type AgendaItem } from "@/lib/publicContent";
 
-/** Bande « Prochains rendez-vous » de l'accueil (3 à 4 pastilles). */
+/** Bande « À l’agenda » de l'accueil (3 à 4 pastilles). */
 export function UpcomingEvents({ items }: { items: AgendaItem[] }) {
   const shown = items.slice(0, 4);
   return (
@@ -12,7 +12,7 @@ export function UpcomingEvents({ items }: { items: AgendaItem[] }) {
       <PageShell>
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
           <h2 id="accueil-agenda" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            Prochains rendez-vous
+            À l’agenda
           </h2>
           <Link
             href="/agenda"

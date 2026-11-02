@@ -83,7 +83,7 @@ function Item({ s }: { s: Submission }) {
         <div className="min-w-0">
           <h3 className="font-display break-words text-lg font-bold text-ink">{title}</h3>
           <p className="text-sm text-ink-muted">
-            {s.kind === "article" ? "Actualité" : "Rendez-vous"} · envoyée le{" "}
+            {s.kind === "article" ? "Actualité · envoyée le" : "Agenda · envoyé le"}{" "}
             <time dateTime={s.createdAt}>{fmt(s.createdAt)}</time>
           </p>
         </div>

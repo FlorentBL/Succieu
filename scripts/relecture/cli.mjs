@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ID_RE = /^[ae]-[0-9a-f]{16}$/;
-const KIND_LABEL = { article: "Actualité", event: "Rendez-vous" };
+const KIND_LABEL = { article: "Actualité", event: "Agenda" };
 export const LIMITS = { content: 2000, title: 256, description: 4096, fieldValue: 1024 };
 
 export function truncate(text, max) {

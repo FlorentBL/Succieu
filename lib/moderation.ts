@@ -38,7 +38,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 
 export const KIND_LABEL: Record<SubmissionKind, string> = {
   article: "Actualité",
-  event: "Rendez-vous",
+  event: "Agenda",
 };
 
 export const STATUS_LABEL: Record<Submission["status"], string> = {
