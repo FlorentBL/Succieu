@@ -45,15 +45,15 @@ export default function VivrePage() {
           </ul>
           <Card className="mt-4">
             <p className="text-sm text-ink-muted">
-              Informations détaillées SMND :{" "}
+              Jours de collecte détaillés sur le site du SMND :{" "}
               <a
                 href={siteConfig.urls.smnd}
                 rel="noopener noreferrer"
                 className="font-medium text-sage-dark underline"
               >
-                calendrier Succieu (SMND)
+                page « Ma commune »
               </a>
-              .
+              , puis choisir Succieu dans la liste.
             </p>
           </Card>
         </Section>

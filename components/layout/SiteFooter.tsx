@@ -65,7 +65,7 @@ export function SiteFooter() {
                 </li>
                 <li>
                   <a href={siteConfig.urls.smnd} className={linkClass} rel="noopener noreferrer">
-                    Collecte des déchets (SMND)
+                    Jours de collecte (SMND)
                   </a>
                 </li>
                 <li>

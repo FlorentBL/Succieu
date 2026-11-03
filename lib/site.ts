@@ -41,7 +41,8 @@ export const siteConfig = {
     panneauPocketEmbed:
       "https://app.panneaupocket.com/embeded/110180054?mode=widget",
     capi: "https://capi-agglo.fr",
-    smnd: "http://www.smnd.fr/Succieu.html",
+    /** Jours de collecte : page « Ma commune » du SMND (choisir Succieu dans la liste). L’ancienne page Succieu.html n’existe plus (404, constaté le 03/11/2026). */
+    smnd: "https://smnd.fr/trier-collecter/ma-commune/",
     /** Horaires et accès aux déchèteries (SMND) */
     smndDechetteriesHoraires:
       "https://smnd.fr/decheteries/horaires-et-acces/",
