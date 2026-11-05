@@ -17,6 +17,8 @@ type Props = {
   compact?: boolean;
   /** Photo de la commune : occupe la moitié droite du bandeau, jusqu’au bord de l’écran. */
   photo?: CommunePhoto;
+  /** Bandeau réduit (espaces de travail) : titre plus petit, marges serrées, sans filigrane. */
+  slim?: boolean;
 };
 
 /**
@@ -30,7 +32,24 @@ export function PageHero({
   className = "",
   compact = false,
   photo,
+  slim = false,
 }: Props) {
+  if (slim) {
+    return (
+      <div className={`relative overflow-hidden bg-pre-pale ${className}`}>
+        <PageShell className="relative pt-6 pb-4 sm:pt-8">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-moss-dark sm:text-3xl">
+            {title}
+          </h1>
+          {description ? (
+            <div className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-muted">{description}</div>
+          ) : null}
+        </PageShell>
+        <HillArc variant="fill" className="h-4 text-surface sm:h-6" />
+      </div>
+    );
+  }
+
   const shellPad = compact ? "pt-10 pb-8 sm:pt-12" : "pt-12 pb-10 sm:pt-16 lg:pt-20";
   const descMax = compact ? "max-w-3xl" : "max-w-2xl";
   const descText = compact ? "text-base leading-relaxed" : "text-lg leading-[1.7]";

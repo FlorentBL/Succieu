@@ -48,14 +48,6 @@ export function SubmissionDetail({ id }: { id: string }) {
 
   return (
     <div>
-      <p>
-        <Link
-          href="/espace-bureau/moderation"
-          className="inline-flex min-h-11 items-center font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-        >
-          ← Toutes les saisies
-        </Link>
-      </p>
       {missing ? (
         <p role="alert" className="mt-4 rounded-[1.25rem] bg-tuile-pale p-6 font-medium text-tuile">
           Cette saisie n&apos;existe pas (ou plus).
@@ -142,7 +134,7 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
         : "Rejeter cette saisie ? Elle ne sera pas publiée.";
 
   return (
-    <article className="mt-4">
+    <article>
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex rounded-full bg-moss px-3 py-1 text-sm font-semibold text-white">
@@ -150,10 +142,10 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
           </span>
           <StatusBadge status={sub.status} />
         </div>
-        <h2 className="font-display mt-3 text-3xl font-bold tracking-tight text-ink">
-          {sub.original.title}
+        <h2 className="font-display mt-2 text-2xl font-bold tracking-tight text-ink sm:text-3xl">
+          {sub.published?.fields.title ?? sub.original.title}
         </h2>
-        <p className="mt-1 text-ink-muted">
+        <p className="mt-0.5 text-ink-muted">
           Saisie par {sub.author} · {formatDateTime(sub.createdAt)}
         </p>
       </header>
@@ -166,7 +158,7 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
         className="outline-none"
       >
         {done ? (
-          <div className="mt-6 rounded-[1.25rem] bg-pre-pale p-6">
+          <div className="mt-4 rounded-[1.25rem] bg-pre-pale p-5">
             <p className="text-lg font-semibold text-moss-dark">{done}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {next ? (
@@ -187,20 +179,20 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
       </div>
 
       {sub.status === "published" && sub.published && !done ? (
-        <p className="mt-6 rounded-[1.25rem] bg-ciel-pale p-5 text-ink">
+        <p className="mt-4 rounded-[1.25rem] bg-ciel-pale p-4 text-ink">
           Publiée le {formatDateTime(sub.published.publishedAt)} (version{" "}
           {sub.published.version === "corrected" ? "corrigée" : "originale"}).
         </p>
       ) : null}
       {sub.status === "rejected" && !done ? (
-        <p className="mt-6 rounded-[1.25rem] bg-tuile-pale p-5 text-ink">
+        <p className="mt-4 rounded-[1.25rem] bg-tuile-pale p-4 text-ink">
           <strong>Refusée.</strong> Motif : {sub.rejectionReason ?? "non renseigné"}
         </p>
       ) : null}
 
       {sub.review ? (
-        <section aria-labelledby="avis" className="mt-8 rounded-[1.25rem] border border-border-subtle bg-surface p-6">
-          <h3 id="avis" className="font-display text-xl font-bold text-moss-dark">
+        <section aria-labelledby="avis" className="mt-6 rounded-[1.25rem] border border-border-subtle bg-surface p-4 sm:p-5">
+          <h3 id="avis" className="font-display text-lg font-bold text-moss-dark">
             Avis de l&apos;agent
           </h3>
           <p className="mt-1 text-sm text-ink-muted">Relue le {formatDateTime(sub.review.reviewedAt)}</p>
@@ -222,7 +214,7 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
           )}
         </section>
       ) : actionable ? (
-        <p className="mt-8 rounded-[1.25rem] bg-colza-pale p-5 text-ink">
+        <p className="mt-6 rounded-[1.25rem] bg-colza-pale p-4 text-ink">
           <strong>En attente de relecture par l&apos;agent.</strong> Vous pouvez publier l&apos;original
           sans attendre, ou revenir plus tard pour la version corrigée.
         </p>
@@ -230,45 +222,13 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
 
       <Comparison sub={sub} />
 
-      <section aria-labelledby="apercu" className="mt-10">
-        <h3 id="apercu" className="font-display text-xl font-bold text-moss-dark">
-          Aperçu sur le site
-        </h3>
-        {hasReview ? (
-          <div role="group" aria-label="Version à prévisualiser" className="mt-3 flex flex-wrap gap-2">
-            {(["original", "corrected"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={preview === v}
-                onClick={() => setPreview(v)}
-                className={`inline-flex min-h-11 items-center rounded-full border-2 px-5 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
-                  preview === v
-                    ? "border-moss bg-moss text-white"
-                    : "border-moss bg-white text-moss-dark hover:bg-pre-pale"
-                }`}
-              >
-                {v === "original" ? "Original" : "Version corrigée"}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <div className="mt-4">
-          {sub.kind === "article" ? (
-            <ArticlePreview f={shown as ArticleFields} />
-          ) : (
-            <EventPreview f={shown as EventFields} />
-          )}
-        </div>
-      </section>
-
       {actionable && !done ? (
-        <section aria-labelledby="actions" className="mt-10 rounded-[1.25rem] border-2 border-moss p-6">
-          <h3 id="actions" className="font-display text-xl font-bold text-moss-dark">
+        <section aria-labelledby="actions" className="mt-6 rounded-[1.25rem] border-2 border-moss p-4 sm:p-5">
+          <h3 id="actions" className="font-display text-lg font-bold text-moss-dark">
             Décision
           </h3>
           {pending === null ? (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button type="button" className={btnSecondary} onClick={() => setPending("original")}>
                 Publier l&apos;original
               </button>
@@ -335,22 +295,56 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
         </section>
       ) : null}
 
-      <section aria-labelledby="chrono" className="mt-10">
-        <h3 id="chrono" className="font-display text-xl font-bold text-moss-dark">
-          Chronologie
+      <section aria-labelledby="apercu" className="mt-6">
+        <h3 id="apercu" className="font-display text-lg font-bold text-moss-dark">
+          Aperçu sur le site
         </h3>
-        <ol className="mt-3 space-y-3 border-l-2 border-moss pl-5">
+        {hasReview ? (
+          <div role="group" aria-label="Version à prévisualiser" className="mt-2 flex flex-wrap gap-2">
+            {(["original", "corrected"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={preview === v}
+                onClick={() => setPreview(v)}
+                className={`inline-flex min-h-11 items-center rounded-full border-2 px-5 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
+                  preview === v
+                    ? "border-moss bg-moss text-white"
+                    : "border-moss bg-white text-moss-dark hover:bg-pre-pale"
+                }`}
+              >
+                {v === "original" ? "Original" : "Version corrigée"}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="mt-3">
+          {sub.kind === "article" ? (
+            <ArticlePreview f={shown as ArticleFields} />
+          ) : (
+            <EventPreview f={shown as EventFields} />
+          )}
+        </div>
+      </section>
+
+      <details className="mt-6 rounded-[1.25rem] border border-border-subtle bg-surface">
+        <summary className="font-display flex min-h-11 cursor-pointer items-center px-4 text-lg font-bold text-moss-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:px-5">
+          Chronologie ({sub.history.length})
+        </summary>
+        <ol className="space-y-3 border-l-2 border-moss py-1 pb-4 pl-4 ml-4 sm:ml-5">
           {sub.history.map((h, k) => (
             <li key={k}>
               <p className="font-semibold">{ACTION_LABEL[h.action] ?? h.action}</p>
               <p className="text-ink-muted">
                 {formatDateTime(h.at)} · {h.by}
               </p>
-              {h.note ? <p className="mt-1">{h.note}</p> : null}
+              {h.note && !(h.action === "reviewed" && h.note === sub.review?.summary) ? (
+                <p className="mt-1">{h.note}</p>
+              ) : null}
             </li>
           ))}
         </ol>
-      </section>
+      </details>
     </article>
   );
 }
@@ -393,15 +387,17 @@ function Comparison({ sub }: { sub: Submission }) {
         .filter((r): r is NonNullable<typeof r> => r !== null),
     [sub, review],
   );
-  const changes = rows.filter((r) => r.changed).length;
+  const changedRows = rows.filter((r) => r.changed);
+  const sameRows = rows.filter((r) => !r.changed);
+  const changes = changedRows.length;
 
   return (
-    <section aria-labelledby="comparaison" className="mt-10">
-      <h3 id="comparaison" className="font-display text-xl font-bold text-moss-dark">
+    <section aria-labelledby="comparaison" className="mt-6">
+      <h3 id="comparaison" className="font-display text-lg font-bold text-moss-dark">
         {review ? "Original et version corrigée" : "Texte saisi"}
       </h3>
       {review ? (
-        <p className="mt-2 text-ink-muted">
+        <p className="mt-1 text-ink-muted">
           {changes === 0
             ? "L'agent n'a modifié aucun champ."
             : `${changes} champ${changes > 1 ? "s" : ""} modifié${changes > 1 ? "s" : ""}. `}
@@ -417,45 +413,51 @@ function Comparison({ sub }: { sub: Submission }) {
           ) : null}
         </p>
       ) : null}
-      <div className="mt-4 space-y-5">
-        {rows.map((r) => (
-          <div key={r.key} className="rounded-[1.25rem] border border-border-subtle bg-surface p-4 sm:p-5">
-            <h4 className="font-semibold text-ink">
-              {FIELD_LABELS[r.key]}
-              {review ? " " : null}
-              {review ? (
-                <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-sm font-semibold ${
-                    r.changed ? "bg-colza-pale text-ink" : "bg-canvas text-ink-muted"
-                  }`}
-                >
-                  {r.changed ? "modifié" : "inchangé"}
+      {changedRows.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {changedRows.map((r) => (
+            <div key={r.key} className="rounded-[1.25rem] border border-border-subtle bg-surface p-4">
+              <h4 className="font-semibold text-ink">
+                {FIELD_LABELS[r.key]}
+                <span className="ml-2 rounded-full bg-colza-pale px-2 py-0.5 text-sm font-semibold text-ink">
+                  modifié
                 </span>
-              ) : null}
-            </h4>
-            {review && r.changed ? (
-              <div className="mt-3 grid gap-4 md:grid-cols-2">
+              </h4>
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-ink-subtle">Original</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words">
+                  <p className="text-sm font-semibold text-ink-muted">Original</p>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words">
                     {r.a ? <Marked parts={r.diff!.before} /> : <em className="text-ink-muted">(vide)</em>}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-ink-subtle">
-                    Corrigée par l&apos;agent
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words">
+                  <p className="text-sm font-semibold text-ink-muted">Corrigée par l&apos;agent</p>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words">
                     {r.b ? <Marked parts={r.diff!.after} /> : <em className="text-ink-muted">(vide)</em>}
                   </p>
                 </div>
               </div>
-            ) : (
-              <p className="mt-2 whitespace-pre-wrap break-words">{r.a}</p>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {sameRows.length > 0 ? (
+        <div className="mt-3 rounded-[1.25rem] border border-border-subtle bg-surface p-4">
+          {review && changedRows.length > 0 ? (
+            <h4 className="mb-2 text-sm font-semibold text-ink-muted">
+              Champs inchangés ({sameRows.length})
+            </h4>
+          ) : null}
+          <dl className="grid grid-cols-[6.5rem_1fr] gap-x-4 gap-y-2 sm:grid-cols-[9rem_1fr]">
+            {sameRows.map((r) => (
+              <div key={r.key} className="contents">
+                <dt className="font-semibold text-ink-muted">{FIELD_LABELS[r.key]}</dt>
+                <dd className="min-w-0 whitespace-pre-wrap break-words">{r.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -467,7 +469,7 @@ function ArticlePreview({ f }: { f: ArticleFields }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={`/api/uploads/${f.image}`} alt="" className="h-48 w-full object-cover" />
       ) : null}
-      <div className="p-6 sm:p-8">
+      <div className="p-5 sm:p-6">
         <p className="inline-flex rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
           {formatDay(f.publishedAt)}
         </p>
