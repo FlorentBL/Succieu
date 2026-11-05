@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@/components/layout/Analytics";
 import { SkipLink } from "@/components/layout/SkipLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -63,6 +64,7 @@ export default function RootLayout({
           {children}
         </main>
         <SiteFooter />
+        <Analytics />
       </body>
     </html>
   );
