@@ -212,6 +212,12 @@ test("notify : canaux indépendants", async () => {
   await assert.rejects(notify(ID, { env: mailEnv, fetchFn: subFetch(false), smtpFn: smtpOk }), (e) => /canal Discord.*500/.test(e.message) && /réussi : Mail envoyé/.test(e.message));
   await assert.rejects(notify(ID, { env: mailEnv, fetchFn: subFetch(true), smtpFn: smtpKo }), (e) => /canal mail.*535/.test(e.message) && /réussi : Alerte Discord/.test(e.message));
   await assert.rejects(notify(ID, { env: mailEnv, fetchFn: subFetch(false), smtpFn: smtpKo }), /Aucun canal n'a abouti/);
+  const sent = [];
+  await assert.rejects(
+    notify(ID, { env: { ...mailEnv, MAIL_MODERATION_TO: "a@x.fr, pas-une-adresse" }, fetchFn: subFetch(true), smtpFn: async (o) => { sent.push(o); } }),
+    (e) => /canal mail.*adresse invalide/.test(e.message) && /réussi : Alerte Discord/.test(e.message),
+  );
+  assert.equal(sent.length, 0);
 });
 
 test("notify : mail seul, et aucun canal", async () => {

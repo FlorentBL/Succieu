@@ -280,8 +280,11 @@ async function sendMailChannel(cfg, { subject, text }, deps) {
 export async function notify(id, { env = process.env, fetchFn = fetch, ...deps } = {}) {
   checkId(id);
   const hook = env.DISCORD_WEBHOOK_ALERTES_MAIRIE || env.DISCORD_WEBHOOK_URL;
-  const mail = mailConfig(env);
-  if (!hook && !mail) {
+  // Une configuration mail invalide est un échec du seul canal mail : Discord part quand même.
+  let mail = null;
+  let mailError = null;
+  try { mail = mailConfig(env); } catch (e) { mailError = e; }
+  if (!hook && !mail && !mailError) {
     throw new Error("Aucun canal d'alerte configuré : DISCORD_WEBHOOK_ALERTES_MAIRIE manquante (et mail non configuré : SMTP_USER, SMTP_PASSWORD, MAIL_MODERATION_TO).");
   }
   const sub = await show(id, { env, fetchFn });
@@ -300,6 +303,7 @@ export async function notify(id, { env = process.env, fetchFn = fetch, ...deps }
     }]);
   }
   if (mail) channels.push(["mail", () => sendMailChannel(mail, buildMail(sub, baseUrl), { ...deps, env })]);
+  else if (mailError) channels.push(["mail", async () => { throw mailError; }]);
   return runChannels(channels);
 }
 
