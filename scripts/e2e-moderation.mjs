@@ -63,9 +63,12 @@ async function post(url, body, headers = {}) {
 let browser;
 try {
   await up();
-  const login = await post("/api/bureau/login", { name: AUTHOR, password: BUREAU_PW });
+  const login = await post("/api/bureau/login", { password: BUREAU_PW });
   assert.equal(login.res.status, 200, "connexion bureau");
-  const cookie = login.res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const step1 = login.res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  const ident = await post("/api/bureau/identity", { name: AUTHOR }, { Cookie: step1 });
+  assert.equal(ident.res.status, 200, "choix du nom");
+  const cookie = ident.res.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
   const mk = async (kind, fields) => {
     const r = await post("/api/bureau/submissions", { kind, fields }, { Cookie: cookie });
     assert.equal(r.res.status, 201, JSON.stringify(r.json));
@@ -183,6 +186,31 @@ try {
     },
     { Authorization: `Bearer ${TOKEN}` },
   );
+  const evt2 = await mk("event", {
+    title: "Réunion bureau",
+    date: "2026-12-10",
+    startTime: "18:00",
+    endTime: "19:00",
+    place: "Mairie",
+    description: "Point mensuel du bureau municipal.",
+  });
+  await post(
+    `/api/review/submissions/${evt2.id}`,
+    {
+      ok: true,
+      issues: [],
+      summary: "Lieu précisé.",
+      corrected: { title: "Réunion bureau", date: "2026-12-10", startTime: "18:00", endTime: "19:00", place: "Mairie, salle du conseil", description: "Point mensuel du bureau municipal." },
+    },
+    { Authorization: `Bearer ${TOKEN}` },
+  );
+  await page.goto(`${BASE}/espace-bureau/moderation/${evt2.id}`);
+  await page.getByLabel("Mot de passe administrateur").fill(ADMIN_PW);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("heading", { name: "Réunion bureau", level: 2 }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Publier la version corrigée" }).count(), 1);
+  await page.screenshot({ path: `${SHOTS}/detail-agenda-relue-390.png`, fullPage: true });
+  await page.screenshot({ path: `${SHOTS}/detail-agenda-relue-390-fold.png` });
   const big = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "fr-FR" });
   const p2 = await big.newPage();
   await p2.goto(`${BASE}/espace-bureau/moderation/${art2.id}`);
@@ -190,6 +218,8 @@ try {
   await p2.getByRole("button", { name: "Se connecter" }).click();
   await p2.getByRole("heading", { name: "Collecte des encombrants", level: 2 }).waitFor();
   await p2.screenshot({ path: `${SHOTS}/detail-1440.png`, fullPage: true });
+  await p2.setViewportSize({ width: 1280, height: 800 });
+  await p2.screenshot({ path: `${SHOTS}/detail-1280-fold.png` });
   await p2.goto(`${BASE}/espace-bureau/moderation`);
   await p2.getByRole("link", { name: /Collecte des encombrants/ }).waitFor();
   await p2.screenshot({ path: `${SHOTS}/liste-1440.png`, fullPage: true });

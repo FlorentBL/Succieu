@@ -8,7 +8,10 @@ export default async function ModerationDetailPage({
 }) {
   const { id } = await params;
   return (
-    <AdminGate title="Détail de la saisie">
+    <AdminGate
+      title="Détail de la saisie"
+      back={{ href: "/espace-bureau/moderation", label: "← Toutes les saisies" }}
+    >
       <SubmissionDetail id={id} />
     </AdminGate>
   );

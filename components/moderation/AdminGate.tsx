@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { PageHero } from "@/components/ui/PageHero";
 import { PageShell } from "@/components/ui/PageShell";
@@ -12,7 +13,16 @@ type State = "loading" | "in" | "out";
  * Réserve ses enfants à la session admin. Hors session, affiche la connexion sur place :
  * une fois connecté, l'URL demandée (par exemple le détail d'une saisie) reste affichée.
  */
-export function AdminGate({ title, children }: { title: string; children: ReactNode }) {
+export function AdminGate({
+  title,
+  back,
+  children,
+}: {
+  title: string;
+  /** Lien de retour affiché à gauche, sur la même ligne que « Se déconnecter ». */
+  back?: { href: string; label: string };
+  children: ReactNode;
+}) {
   const [state, setState] = useState<State>("loading");
 
   useEffect(() => {
@@ -32,11 +42,11 @@ export function AdminGate({ title, children }: { title: string; children: ReactN
   return (
     <>
       <PageHero
-        compact
+        slim
         title={title}
         description="Espace réservé à l'administrateur du site : relecture, publication et refus des saisies du bureau municipal."
       />
-      <PageShell className="py-8 sm:py-10">
+      <PageShell className="py-4 sm:py-6">
         {state === "loading" ? (
           <p role="status" className="text-ink-muted">
             Vérification de votre accès…
@@ -45,8 +55,18 @@ export function AdminGate({ title, children }: { title: string; children: ReactN
           <LoginForm onDone={() => setState("in")} />
         ) : (
           <>
-            <div className="mb-6 flex justify-end">
-              <button type="button" onClick={logout} className={btnSecondary}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              {back ? (
+                <Link
+                  href={back.href}
+                  className="inline-flex min-h-11 items-center font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  {back.label}
+                </Link>
+              ) : (
+                <span />
+              )}
+              <button type="button" onClick={logout} className={`${btnSecondary} !min-h-11 !px-4 !py-1.5`}>
                 Se déconnecter
               </button>
             </div>
