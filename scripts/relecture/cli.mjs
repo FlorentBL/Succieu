@@ -3,9 +3,10 @@
 // Env : REVIEW_API_TOKEN, SUCCIEU_BASE_URL (défaut https://succieu.fr),
 //   notify, canal Discord : DISCORD_WEBHOOK_ALERTES_MAIRIE (DISCORD_WEBHOOK_URL accepté en repli) ;
 //   notify, canal mail (optionnel, SMTP sans dépendance) : SMTP_USER, SMTP_PASSWORD, MAIL_MODERATION_TO (adresses séparées par des virgules),
-//   MAIL_FROM (défaut SMTP_USER), SMTP_HOST (défaut ssl0.ovh.net), SMTP_PORT (défaut 465, TLS implicite).
+//   MAIL_FROM (défaut SMTP_USER), SMTP_HOST (défaut pro2.mail.ovh.net), SMTP_PORT (défaut 587, STARTTLS ; 465 = TLS implicite).
 import { readFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
+import net from "node:net";
 import tls from "node:tls";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -191,23 +192,29 @@ function mailConfig(env) {
 }
 
 /**
- * Client SMTP minimal, TLS implicite. connectFn(host, port) retourne un socket (injectable pour les tests).
+ * Client SMTP minimal. Port 465 : TLS implicite ; autre port : connexion claire puis STARTTLS (jamais d'AUTH en clair).
+ * connectFn(host, port) retourne un socket et upgradeFn(socket, host) le passe en TLS (injectables pour les tests).
  * Ne journalise ni le mot de passe ni les adresses.
  */
-export async function sendSmtp({ host, port, user, password, from, to, message, connectFn, timeoutMs = SMTP_TIMEOUT_MS }) {
+export async function sendSmtp({ host, port, user, password, from, to, message, connectFn, upgradeFn, timeoutMs = SMTP_TIMEOUT_MS }) {
   if (!password) throw new Error("SMTP_PASSWORD manquante (secret injecté).");
   if (!ADDR_RE.test(from)) throw new Error("Adresse d'expéditeur invalide (MAIL_FROM / SMTP_USER).");
-  const connect = connectFn ?? ((h, p) => tls.connect({ host: h, port: p, servername: h }));
-  const socket = connect(host, port);
+  const implicitTls = Number(port) === 465;
+  const connect = connectFn ?? ((h, p) => (implicitTls ? tls.connect({ host: h, port: p, servername: h }) : net.connect({ host: h, port: p })));
+  const upgrade = upgradeFn ?? ((sock, h) => tls.connect({ socket: sock, servername: h }));
+  let socket = connect(host, port);
   let buffer = "";
   let ended = null;
   let wake = null;
   const fail = (e) => { ended ??= e; wake?.(); };
   const timer = setTimeout(() => { fail(new Error(`SMTP : délai dépassé (${timeoutMs / 1000} s) — vérifier le port et le pare-feu.`)); socket.destroy(); }, timeoutMs);
-  socket.setEncoding("utf8");
-  socket.on("data", (d) => { buffer += d; wake?.(); });
-  socket.on("error", (e) => fail(new Error(`SMTP : connexion impossible (${e.code ?? e.message}).`)));
-  socket.on("close", () => fail(new Error("SMTP : connexion fermée par le serveur.")));
+  const attach = (sock) => {
+    sock.setEncoding("utf8");
+    sock.on("data", (d) => { buffer += d; wake?.(); });
+    sock.on("error", (e) => fail(new Error(`SMTP : connexion impossible (${e.code ?? e.message}).`)));
+    sock.on("close", () => fail(new Error("SMTP : connexion fermée par le serveur.")));
+  };
+  attach(socket);
 
   const readReply = async () => {
     for (;;) {
@@ -239,7 +246,23 @@ export async function sendSmtp({ host, port, user, password, from, to, message, 
 
   try {
     await expect("connexion", [220]);
-    const ehlo = await send(`EHLO ${from.split("@")[1]}`, "EHLO", [250]);
+    const helo = `EHLO ${from.split("@")[1]}`;
+    let ehlo = await send(helo, "EHLO", [250]);
+    if (!implicitTls) {
+      if (!ehlo.lines.some((l) => /^STARTTLS\b/i.test(l))) {
+        throw new Error("SMTP : le serveur n'annonce pas STARTTLS, envoi refusé (jamais d'authentification en clair).");
+      }
+      await send("STARTTLS", "STARTTLS", [220]);
+      const plain = socket;
+      plain.removeAllListeners("data");
+      plain.removeAllListeners("close");
+      plain.removeAllListeners("error");
+      plain.on("error", () => {});
+      buffer = "";
+      socket = upgrade(plain, host);
+      attach(socket);
+      ehlo = await send(helo, "EHLO", [250]);
+    }
     const auth = ehlo.lines.find((l) => /^AUTH[ =]/i.test(l)) ?? "";
     if (/\bPLAIN\b/i.test(auth) || !/\bLOGIN\b/i.test(auth)) {
       await send(`AUTH PLAIN ${b64(`\0${user}\0${password}`)}`, "AUTH", [235]);
@@ -265,14 +288,15 @@ async function sendMailChannel(cfg, { subject, text }, deps) {
   const from = env.MAIL_FROM || cfg.user;
   const message = formatMessage({ from, to: cfg.to, subject, text });
   await (deps.smtpFn ?? sendSmtp)({
-    host: env.SMTP_HOST || "ssl0.ovh.net",
-    port: Number(env.SMTP_PORT) || 465,
+    host: env.SMTP_HOST || "pro2.mail.ovh.net",
+    port: Number(env.SMTP_PORT) || 587,
     user: cfg.user,
     password: env.SMTP_PASSWORD,
     from,
     to: cfg.to,
     message,
     connectFn: deps.connectFn,
+    upgradeFn: deps.upgradeFn,
   });
   return `Mail envoyé (${cfg.to.length} destinataire${cfg.to.length > 1 ? "s" : ""}).`;
 }

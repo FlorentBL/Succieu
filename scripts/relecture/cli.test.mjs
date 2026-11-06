@@ -110,7 +110,7 @@ async function fakeSmtp({ authCode = "235 ok", rcptCode = "250 ok", silent = fal
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const { port } = server.address();
-  return { log, port, connectFn: (_h, p) => net.connect(p, "127.0.0.1"), close: () => server.close() };
+  return { log, port, connectFn: () => net.connect(port, "127.0.0.1"), close: () => server.close() };
 }
 
 test("buildMail : sujet, corps, lien, 3 points maximum", () => {
@@ -164,7 +164,7 @@ test("SMTP : dialogue complet contre un faux serveur", async () => {
   const srv = await fakeSmtp();
   try {
     const message = formatMessage({ from: "m@succieu.fr", to: ["a@x.fr", "b@y.fr"], subject: "S", text: "t" });
-    await sendSmtp({ host: "h", port: srv.port, user: "m@succieu.fr", password: "pw", from: "m@succieu.fr", to: ["a@x.fr", "b@y.fr"], message, connectFn: srv.connectFn });
+    await sendSmtp({ host: "h", port: 465, user: "m@succieu.fr", password: "pw", from: "m@succieu.fr", to: ["a@x.fr", "b@y.fr"], message, connectFn: srv.connectFn });
     await new Promise((r) => setTimeout(r, 100));
     const cmds = srv.log.filter((l) => /^(EHLO|AUTH|MAIL|RCPT|DATA|QUIT)/.test(l));
     assert.deepEqual(cmds.map((c) => c.split(" ")[0]), ["EHLO", "AUTH", "MAIL", "RCPT", "RCPT", "DATA", "QUIT"]);
@@ -176,19 +176,19 @@ test("SMTP : dialogue complet contre un faux serveur", async () => {
 test("SMTP : 535 = identifiants, sans fuite du mot de passe ; RCPT sans adresse ; délai", async () => {
   let srv = await fakeSmtp({ authCode: "535 5.7.8 bad credentials" });
   try {
-    const err = await sendSmtp({ host: "h", port: srv.port, user: "u@s.fr", password: "pw-secret", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn }).catch((e) => e);
+    const err = await sendSmtp({ host: "h", port: 465, user: "u@s.fr", password: "pw-secret", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn }).catch((e) => e);
     assert.match(err.message, /AUTH \(code 535\)/);
     assert.ok(!err.message.includes("pw-secret"));
   } finally { srv.close(); }
   srv = await fakeSmtp({ rcptCode: "550 no such user a@x.fr" });
   try {
-    const err = await sendSmtp({ host: "h", port: srv.port, user: "u@s.fr", password: "pw", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn }).catch((e) => e);
+    const err = await sendSmtp({ host: "h", port: 465, user: "u@s.fr", password: "pw", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn }).catch((e) => e);
     assert.match(err.message, /RCPT TO \(code 550\)/);
     assert.ok(!err.message.includes("a@x.fr"));
   } finally { srv.close(); }
   srv = await fakeSmtp({ silent: true });
   try {
-    await assert.rejects(sendSmtp({ host: "h", port: srv.port, user: "u@s.fr", password: "pw", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn, timeoutMs: 150 }), /délai dépassé/);
+    await assert.rejects(sendSmtp({ host: "h", port: 465, user: "u@s.fr", password: "pw", from: "u@s.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn, timeoutMs: 150 }), /délai dépassé/);
   } finally { srv.close(); }
 });
 
@@ -200,8 +200,8 @@ test("notify : Discord + mail, deux canaux", async () => {
   const smtpFn = async (o) => { mails.push(o); };
   const out = await notify(ID, { env: mailEnv, fetchFn: subFetch(), smtpFn });
   assert.equal(out, "Alerte Discord envoyée. Mail envoyé (2 destinataires).");
-  assert.equal(mails[0].host, "ssl0.ovh.net");
-  assert.equal(mails[0].port, 465);
+  assert.equal(mails[0].host, "pro2.mail.ovh.net");
+  assert.equal(mails[0].port, 587);
   assert.equal(mails[0].from, "moderation@succieu.fr");
   assert.deepEqual(mails[0].to, ["a@x.fr", "b@y.fr"]);
 });
@@ -232,4 +232,117 @@ test("test-mail : envoi d'essai et configuration manquante", async () => {
   assert.match(sent.message, /Subject: \[Succieu\] Mail d'essai/);
   await assert.rejects(testMail({ env: { ...mailEnv, MAIL_MODERATION_TO: "" } }), /Mail non configuré/);
   assert.match(await main(["test-mail"], { env: mailEnv, smtpFn: async () => {} }), /Mail envoyé/);
+});
+
+// --- STARTTLS (port ≠ 465) ---
+import tls from "node:tls";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+function testCert() {
+  const dir = mkdtempSync(join(tmpdir(), "smtp-cert-"));
+  try {
+    execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", join(dir, "k.pem"), "-out", join(dir, "c.pem"), "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost"], { stdio: "ignore" });
+    return { key: readFileSync(join(dir, "k.pem")), cert: readFileSync(join(dir, "c.pem")) };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Faux serveur SMTP STARTTLS : clair jusqu'à STARTTLS, puis TLS (certificat de test). */
+async function fakeStartTls({ announce = true } = {}) {
+  const { key, cert } = testCert();
+  const log = [];
+  const server = net.createServer((raw) => {
+    let sock = raw;
+    let data = false;
+    let acc = "";
+    let secure = false;
+    const onData = (d) => {
+      acc += d;
+      let i;
+      while ((i = acc.indexOf("\r\n")) >= 0) {
+        const line = acc.slice(0, i);
+        acc = acc.slice(i + 2);
+        log.push(`${secure ? "tls" : "clair"}:${line}`);
+        if (data) { if (line === ".") { data = false; sock.write("250 queued\r\n"); } continue; }
+        if (line.startsWith("EHLO")) sock.write(`250-fake\r\n${announce && !secure ? "250-STARTTLS\r\n" : ""}250 AUTH PLAIN LOGIN\r\n`);
+        else if (line === "STARTTLS") {
+          sock.write("220 go ahead\r\n");
+          sock.removeListener("data", onData);
+          secure = true;
+          acc = "";
+          sock = new tls.TLSSocket(raw, { isServer: true, key, cert });
+          sock.on("data", onData);
+          sock.on("error", () => {});
+        } else if (line.startsWith("AUTH")) sock.write("235 ok\r\n");
+        else if (line === "DATA") { data = true; sock.write("354 go\r\n"); }
+        else if (line === "QUIT") sock.end("221 bye\r\n");
+        else sock.write("250 ok\r\n");
+      }
+    };
+    raw.on("error", () => {});
+    sock.write("220 fake ESMTP\r\n");
+    sock.on("data", onData);
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  const { port } = server.address();
+  return {
+    log,
+    port,
+    cert,
+    connectFn: () => net.connect(port, "127.0.0.1"),
+    upgradeFn: (sock, h) => tls.connect({ socket: sock, servername: h, ca: cert }),
+    close: () => server.close(),
+  };
+}
+
+const starttlsArgs = (srv, extra = {}) => ({ host: "localhost", port: srv.port, user: "m@succieu.fr", password: "pw", from: "m@succieu.fr", to: ["a@x.fr"], message: "Subject: t\r\n\r\nbonjour", connectFn: srv.connectFn, upgradeFn: srv.upgradeFn, ...extra });
+
+test("sendSmtp STARTTLS : dialogue complet, AUTH seulement après TLS", async () => {
+  const srv = await fakeStartTls();
+  try {
+    await sendSmtp(starttlsArgs(srv));
+    await new Promise((r) => setTimeout(r, 100));
+    const cmds = srv.log.map((l) => l.replace(/^(\w+:\w+).*/, "$1"));
+    assert.deepEqual(cmds, ["clair:EHLO", "clair:STARTTLS", "tls:EHLO", "tls:AUTH", "tls:MAIL", "tls:RCPT", "tls:DATA", "tls:Subject", "tls:", "tls:bonjour", "tls:.", "tls:QUIT"].filter((c) => cmds.includes(c)));
+    assert.ok(srv.log.indexOf("clair:STARTTLS") < srv.log.findIndex((l) => l.startsWith("tls:AUTH")));
+    assert.ok(!srv.log.some((l) => l.startsWith("clair:AUTH")));
+  } finally {
+    srv.close();
+  }
+});
+
+test("sendSmtp STARTTLS : certificat non reconnu refusé", async () => {
+  const srv = await fakeStartTls();
+  try {
+    const err = await sendSmtp(starttlsArgs(srv, { upgradeFn: (sock, h) => tls.connect({ socket: sock, servername: h }) })).catch((e) => e);
+    assert.match(err.message, /SMTP/);
+    assert.ok(!srv.log.some((l) => l.startsWith("tls:AUTH")));
+  } finally {
+    srv.close();
+  }
+});
+
+test("sendSmtp : STARTTLS non annoncé, aucune authentification", async () => {
+  const srv = await fakeStartTls({ announce: false });
+  try {
+    await assert.rejects(sendSmtp(starttlsArgs(srv)), /n'annonce pas STARTTLS/);
+    assert.ok(!srv.log.some((l) => /AUTH/.test(l)));
+  } finally {
+    srv.close();
+  }
+});
+
+test("sendSmtp port 465 : TLS implicite inchangé, pas de STARTTLS", async () => {
+  const srv = await fakeSmtp();
+  try {
+    await sendSmtp({ host: "h", port: 465, user: "m@succieu.fr", password: "pw", from: "m@succieu.fr", to: ["a@x.fr"], message: "x", connectFn: srv.connectFn });
+    assert.ok(!srv.log.some((l) => l === "STARTTLS"));
+    assert.ok(srv.log.some((l) => l.startsWith("AUTH")));
+  } finally {
+    srv.close();
+  }
 });
