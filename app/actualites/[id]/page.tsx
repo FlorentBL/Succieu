@@ -38,21 +38,19 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
   const paragraphs = fields.body.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
   return (
     <article>
-      <div className="bg-pre-pale">
-        <PageShell width="narrow" className="pb-8 pt-10 sm:pt-14">
-          <Link href="/actualites" className="inline-flex min-h-11 items-center font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
+      <PageShell width="narrow" className="pb-16 pt-4 sm:pb-20 sm:pt-6">
+        <header className={fields.image ? "mb-6" : "mb-6 border-b border-border-subtle pb-6"}>
+          <Link href="/actualites" className="-ml-1 inline-flex min-h-11 items-center px-1 font-semibold text-moss-dark underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus">
             ← Toutes les actualités
           </Link>
-          <p className="mt-4 font-semibold text-ink-muted">
+          <p className="mt-1 font-semibold text-ink-muted">
             <time dateTime={a.publishedAt}>{formatDate(a.publishedAt)}</time>
           </p>
-          <h1 className="font-display mt-2 text-4xl font-bold leading-[1.08] tracking-tight text-moss-dark sm:text-5xl">
+          <h1 className="font-display mt-2 text-3xl font-bold leading-[1.1] tracking-tight text-moss-dark sm:text-[2.5rem]">
             {fields.title}
           </h1>
-          <p className="mt-5 text-lg leading-relaxed text-ink-muted">{fields.summary}</p>
-        </PageShell>
-      </div>
-      <PageShell width="narrow" className="pb-16 pt-8 sm:pb-20">
+          <p className="mt-3 text-lg leading-relaxed text-ink-muted">{fields.summary}</p>
+        </header>
         {fields.image ? (
           <ArticleVisual id={a.id} image={fields.image} alt="" className="mb-8 max-h-[28rem] w-full rounded-[1.5rem]" />
         ) : null}
