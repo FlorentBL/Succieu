@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { PageHero } from "@/components/ui/PageHero";
 import { CouncilPhoto } from "@/components/council/CouncilPhoto";
@@ -10,10 +11,18 @@ const executive = councilMembers
   .filter((m) => m.category === "executif")
   .sort((a, b) => a.order - b.order);
 
+const agents = [
+  {
+    name: "Olivier",
+    role: "Agent communal",
+    photo: "/photos/agents/olivier.webp",
+  },
+];
+
 export const metadata: Metadata = {
   title: "Ma Mairie",
   description:
-    "Conseil municipal, CCAS, identité et histoire — Mairie de Succieu.",
+    "Conseil municipal, agents communaux, CCAS, identité et histoire — Mairie de Succieu.",
 };
 
 export default function MaMairiePage() {
@@ -56,6 +65,31 @@ export default function MaMairiePage() {
                     {m.role}
                   </span>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="agents-titre" className="mt-16">
+          <h2 id="agents-titre" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            Les agents communaux
+          </h2>
+          <ul className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            {agents.map((a) => (
+              <li key={a.name}>
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[1.25rem] bg-pre-pale">
+                  <Image
+                    src={a.photo}
+                    alt={`Portrait de ${a.name}, ${a.role.toLowerCase()}`}
+                    fill
+                    sizes="(min-width: 1024px) 14rem, (min-width: 640px) 30vw, 45vw"
+                    className="object-contain object-bottom"
+                  />
+                </div>
+                <span className="mt-3 block font-display text-lg font-bold leading-tight text-ink">
+                  {a.name}
+                </span>
+                <span className="mt-0.5 block text-sm text-ink-muted">{a.role}</span>
               </li>
             ))}
           </ul>
