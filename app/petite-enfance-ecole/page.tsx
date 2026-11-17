@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { PageHero } from "@/components/ui/PageHero";
@@ -67,6 +68,20 @@ export default function PetiteEnfancePage() {
         </Section>
 
         <Section id="periscolaire" title="Périscolaire">
+          <figure>
+            <Image
+              src="/photos/periscolaire/equipe.webp"
+              width={1600}
+              height={888}
+              alt="L’équipe du périscolaire : Kelly, Sandrine, Mélanie et Michèle, souriantes"
+              sizes="(min-width: 768px) 42rem, 100vw"
+              className="h-auto w-full"
+            />
+            <figcaption className="mt-2 text-sm leading-snug text-ink-muted">
+              L’équipe du périscolaire, de gauche à droite : Kelly, Sandrine,
+              Mélanie et Michèle.
+            </figcaption>
+          </figure>
           <ul className="text-ink-muted">
             <li>Garderie matin : 7h30 → 8h30</li>
             <li>Cantine : 11h30 → 13h30</li>
