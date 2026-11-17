@@ -94,12 +94,12 @@ export const councilMembers: CouncilMember[] = [
   },
   {
     order: 8,
-    photoFile: "Sandra Garnier.JPG",
-    civility: "Mme",
-    firstName: "Sandra",
-    lastName: "GARNIER",
-    line: "Sandra GARNIER",
-    role: "Conseillère municipale",
+    photoFile: "Pierre Ricca.JPG",
+    civility: "M.",
+    firstName: "Pierre",
+    lastName: "RICCA",
+    line: "Pierre RICCA",
+    role: "Conseiller municipal",
     category: "conseiller",
   },
   {
