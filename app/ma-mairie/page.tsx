@@ -11,7 +11,12 @@ const executive = councilMembers
   .filter((m) => m.category === "executif")
   .sort((a, b) => a.order - b.order);
 
-const agents = [
+/** Personnel communal. `photo` absente : emplacement avec l’initiale. */
+const agents: { name: string; role: string; photo?: string }[] = [
+  {
+    name: "Isabelle",
+    role: "Secrétaire de mairie",
+  },
   {
     name: "Olivier",
     role: "Agent communal",
@@ -22,7 +27,7 @@ const agents = [
 export const metadata: Metadata = {
   title: "Ma Mairie",
   description:
-    "Conseil municipal, agents communaux, CCAS, identité et histoire — Mairie de Succieu.",
+    "Conseil municipal, personnel communal, CCAS, identité et histoire — Mairie de Succieu.",
 };
 
 export default function MaMairiePage() {
@@ -72,19 +77,28 @@ export default function MaMairiePage() {
 
         <section aria-labelledby="agents-titre" className="mt-16">
           <h2 id="agents-titre" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            Les agents communaux
+            Le personnel communal
           </h2>
           <ul className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
             {agents.map((a) => (
               <li key={a.name}>
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[1.25rem] bg-pre-pale">
-                  <Image
-                    src={a.photo}
-                    alt={`Portrait de ${a.name}, ${a.role.toLowerCase()}`}
-                    fill
-                    sizes="(min-width: 1024px) 14rem, (min-width: 640px) 30vw, 45vw"
-                    className="object-contain object-bottom"
-                  />
+                  {a.photo ? (
+                    <Image
+                      src={a.photo}
+                      alt={`Portrait de ${a.name}, ${a.role.toLowerCase()}`}
+                      fill
+                      sizes="(min-width: 1024px) 14rem, (min-width: 640px) 30vw, 45vw"
+                      className="object-contain object-bottom"
+                    />
+                  ) : (
+                    <span
+                      className="flex h-full items-center justify-center font-display text-5xl font-bold text-moss-dark/40"
+                      aria-hidden="true"
+                    >
+                      {a.name[0]}
+                    </span>
+                  )}
                 </div>
                 <span className="mt-3 block font-display text-lg font-bold leading-tight text-ink">
                   {a.name}
