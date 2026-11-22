@@ -73,13 +73,13 @@ export default function PetiteEnfancePage() {
               src="/photos/periscolaire/equipe.webp"
               width={1600}
               height={888}
-              alt="L’équipe du périscolaire : Kelly, Sandrine, Mélanie et Michèle, souriantes"
+              alt="L’équipe du périscolaire : Kelly, Sandrine, Mélany et Michèle, souriantes"
               sizes="(min-width: 768px) 42rem, 100vw"
               className="h-auto w-full"
             />
             <figcaption className="mt-2 text-sm leading-snug text-ink-muted">
               L’équipe du périscolaire, de gauche à droite : Kelly, Sandrine,
-              Mélanie et Michèle.
+              Mélany et Michèle.
             </figcaption>
           </figure>
           <ul className="text-ink-muted">
