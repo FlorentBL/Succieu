@@ -151,6 +151,60 @@ Porte l'application de réservation de `sdf.succieu.fr` dans le hub (module `sal
 **Migration** (sur le serveur, après sauvegarde ; jamais lancée depuis le dépôt) :
 `DATA_DIR=/var/lib/succieu-web node scripts/import-salle-des-fetes.mjs <dossier data de l'ancienne appli> --dry-run` puis sans `--dry-run`. Lit `reservations.json` et `audit-log.json`, idempotent (un `id` déjà présent n'est jamais écrasé), rapport : lues / ajoutées / déjà présentes / ignorées, avertissement sur les chevauchements. Les réservations importées passent `publicVisible: false`.
 
+## Module « Espace Bureau » : suivi des dossiers (`/espace-bureau/bureau`)
+
+Port de l'application de suivi de suivi.succieu.fr (module id `espace-bureau`, tuile « Espace Bureau »). Droits : **lecture** = consulter (liste, fiche, tableau, réunion, export) ; **écriture** = créer, modifier, ajouter une nouvelle, clore/rouvrir, « à voir en bureau », changer d'étape. Aucune connexion propre : la session du hub suffit. Les anciens codes par élu et la liste `elus[]` n'existent plus.
+
+**Données** : `DATA_DIR/espace-bureau.json` (`{ version: 1, dossiers[], listes{commissions, decisionsAttendues, blocages} }`), écriture atomique sous verrou (`lib/content/storage.ts`). Ne pas confondre avec `DATA_DIR/bureau.json` (liste de prénoms de l'espace bureau historique, inchangée). Le fichier de production n'entre jamais dans le dépôt.
+
+**Dossier** (`lib/suivi/types.ts`) : `id` (`d_…`), `titre`, `commission`, `referents[]` (**ids de comptes du hub**), `priorite` (P1 Urgent / P2 Important / P3 À programmer ; « P1 » jamais affiché), `avancement` (À étudier, À lancer, En cours, En attente, À arbitrer, Terminé, Abandonné), `blocage`, `decisionAttendue`, `prochaineAction`, `echeance` (date ISO si certaine : `AAAA-MM-JJ`, `JJ/MM/AAAA`, « 15 décembre 2026 » ; sinon libellé tel quel : « ASAP », « Avril 2027 »), `origine`, `aVoirEnBureau`, `statut` (actif / termine / abandonne), `creeLe`, `modifieLe`, `revision`, `nouvelles[]` (`id`, `date`, `auteur` = nom affiché du compte connecté, `auteurId`, `texte`), `importKey?`, `anciensReferents?` (noms d'anciens élus sans compte rapproché, pour mémoire). Avancement et statut sont synchronisés (Terminé/Abandonné ⇔ statut). `revision` détecte une modification concurrente. « En retard » seulement pour une date certaine dépassée.
+
+**Pages** (dans le groupe `(hub)`, `requireModulePage("espace-bureau")` dans le layout et chaque page) :
+
+| Chemin | Contenu |
+|---|---|
+| `/espace-bureau/bureau` | Mes dossiers (référent = compte connecté), groupés par priorité ; recherche, filtres commission/priorité (formulaire GET, sans JavaScript) |
+| `…/bureau/tous` | Tous les dossiers en cours |
+| `…/bureau/tableau` | Kanban par avancement (À trier, À étudier, À lancer, En cours, En attente, À arbitrer). « Mes dossiers » par défaut, `?tous=1` pour tous. Bouton « Changer d'étape » (gros boutons) + glisser-déposer ordinateur ; `PATCH` avec `revision`, 409 expliqué ; téléphone : une colonne à la fois. Lecture seule : ni bouton ni glisser-déposer |
+| `…/bureau/dossier/<id>` · `…/modifier` | Fiche (champs, nouvelles, actions) · formulaire (contrôle de révision) |
+| `…/bureau/nouveau` | Nouveau dossier (écriture) |
+| `…/bureau/reunion` | Ordre du jour (à voir en bureau + urgents), impression A4 |
+| `…/bureau/termines` | Terminés et abandonnés (ouvrir pour rouvrir) |
+
+« Télécharger en Excel » (`/api/espace-bureau/export`) est dans la sous-navigation. Le lien « Documents ↗ » de l'ancienne appli n'est pas repris : le module Documents (volet 7) le remplace. La tuile d'accueil affiche « N dossiers dont vous êtes référent » (`lib/hub/summaries.ts`).
+
+**API** (`app/api/espace-bureau/…`, gardes `requireModule("espace-bureau", read|write, req)`, écriture = origine exigée ; erreurs `{ error: { code, message } }`, 409 de révision = `invalid_transition`) :
+
+| Méthode et chemin | Niveau | Rôle |
+|---|---|---|
+| `GET /dossiers?statut=&commission=&referent=<id compte>&bureau=1&q=` | lecture | Lister (tri priorité puis titre) |
+| `POST /dossiers` | écriture | Créer (référents = ids de comptes existants) |
+| `GET /dossiers/<id>` · `PATCH /dossiers/<id>` | lecture · écriture | Lire · modifier (`revision` facultative ⇒ 409) |
+| `POST /dossiers/<id>/clore` `{abandon?, texte?}` · `/rouvrir` · `/nouvelles` `{texte}` · `/bureau` `{valeur?}` | écriture | Actions ; l'auteur des nouvelles est le compte connecté |
+| `GET /export` | lecture | Classeur .xlsx (A faire / Terminés / Listes, nouvelles incluses) |
+| `GET/POST/PATCH/DELETE /listes` | lecture / écriture | Commissions, décisions attendues, blocages (renommer propage ; supprimer refusé si utilisé). Pas d'écran : API seulement, comme avant |
+
+**Journal d'audit** : celui du hub (`hub-audit.jsonl`), actions `bureau.dossier_cree`, `bureau.dossier_modifie` (champs modifiés), `bureau.dossier_clos`, `bureau.dossier_abandonne`, `bureau.dossier_rouvert`, `bureau.nouvelle_ajoutee`, `bureau.bureau_bascule`, `bureau.liste_*`, `bureau.export_xlsx`, `bureau.import` ; acteur = identifiant du compte. Pas de contenu de nouvelle dans le journal.
+
+**Code** : `lib/suivi/` (modèle pur `model.ts`, `tableau.ts`, `affichage.ts`, `store.ts`, `export.ts`, `xlsx.ts` écriture seule, `import.ts`, tests `suivi.test.ts`) ; composants `components/suivi/` (jetons du site, `PageHero` slim, `PageShell`, champs de `components/bureau/fields.tsx`).
+
+### Import depuis suivi.succieu.fr (`scripts/import-suivi-bureau.mjs`)
+
+```bash
+# sur le serveur ou en local, avec le DATA_DIR du hub (users.json présent) ; le bureau.json de suivi.succieu.fr est copié hors dépôt
+DATA_DIR=/var/lib/succieu-web node scripts/import-suivi-bureau.mjs <bureau.json> --dry-run          # rapport seul, rien n'est écrit
+DATA_DIR=/var/lib/succieu-web node scripts/import-suivi-bureau.mjs <bureau.json> [--map correspondances.json]
+```
+
+- Chaque élu est rapproché d'un **compte actif** du hub : table `--map` (`{ "<id ou nom de l'élu>": "<id ou identifiant du compte>" | null }`), puis nom complet normalisé (sans accent ni casse), puis prénom s'il désigne un seul compte. Ambigu ou introuvable : **non rapproché** ; le dossier est importé sans ce référent, dont le nom est gardé dans `anciensReferents`.
+- Le rapport (`--dry-run` ou réel) donne : dossiers (source, importés, déjà présents), nouvelles, commissions ajoutées, élus rapprochés (méthode), référents non rapprochés avec nombre de dossiers. Il ne liste aucun titre ni texte.
+- **Idempotent** : clé = id du dossier (ou `importKey`). Un dossier déjà présent n'est jamais écrasé (les modifications faites dans le hub sont conservées). Seul rattrapage : un référent resté sans compte est rattaché si son compte existe au nouveau passage (rien d'autre n'est modifié). Dates, `revision`, identifiants et historique des nouvelles sont conservés tels quels ; les listes (commissions…) sont fusionnées.
+- Ordre conseillé : créer les comptes des élus dans l'administration, `--dry-run`, compléter `--map`, import réel, relire le rapport.
+- Non repris : l'import Excel de l'ancienne appli (les données sont déjà en JSON), l'ancien `audit.jsonl` (à archiver à part) et les codes des élus (remplacés par les comptes).
+- Aucune donnée réelle dans le dépôt : les tests utilisent des fixtures fictives.
+
+**Écarts avec l'ancienne appli** : plus de page « Qui êtes-vous ? » ni de codes (comptes du hub) ; pas de gestion des élus (c'est l'administration des comptes) ; navigation par onglets du hub au lieu de la barre fixe mobile ; taille du texte = celle du hub ; filtres dans un `<details>` sans envoi automatique ; pas d'écran pour les listes (API conservée) ; aucun test e2e navigateur (aucun playwright-core installé). Non déployé.
+
 ## Routes
 
 Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code", "message", "fields?" } }`. Toutes les réponses JSON sont `Cache-Control: no-store`.
