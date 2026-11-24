@@ -115,7 +115,17 @@ log "2/7 clone de la révision demandée dans $NEW"
 if [ -e "$NEW" ]; then run rm -rf "$NEW"; fi
 run install -d -o "${RUN_AS:-$(id -un)}" -g "${RUN_AS:-$(id -gn)}" "$NEW"
 run as_app git clone -q "$REPO_URL" "$NEW"
-run as_app git -C "$NEW" checkout -q --detach "$REF"
+if [ "$DRY_RUN" = 1 ]; then
+  log "[dry-run] checkout détaché de $REF (origin/$REF si c'est une branche distante)"
+else
+  # Une branche n'existe qu'en origin/* après un clone : on la résout explicitement.
+  if as_app git -C "$NEW" rev-parse -q --verify "refs/remotes/origin/$REF^{commit}" >/dev/null; then
+    target="origin/$REF"
+  else
+    target="$REF"
+  fi
+  as_app git -C "$NEW" checkout -q --detach "$target"
+fi
 if [ "$DRY_RUN" = 1 ]; then
   log "[dry-run] écriture de $NEW/REVISION"
 else
