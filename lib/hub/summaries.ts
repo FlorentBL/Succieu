@@ -7,7 +7,13 @@ import type { ModuleId } from "./modules";
  */
 export type ModuleSummary = (user: HubUser) => Promise<string | null>;
 
-export const MODULE_SUMMARIES: Partial<Record<ModuleId, ModuleSummary>> = {};
+export const MODULE_SUMMARIES: Partial<Record<ModuleId, ModuleSummary>> = {
+  "salle-des-fetes": async () => {
+    const { getDashboard } = await import("../salle-des-fetes/store");
+    const n = (await getDashboard(false)).counts.upcoming;
+    return n === 0 ? "Aucune réservation à venir" : `${n} réservation${n > 1 ? "s" : ""} à venir`;
+  },
+};
 
 export async function summaryFor(id: ModuleId, user: HubUser): Promise<string | null> {
   try {

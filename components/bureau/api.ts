@@ -7,6 +7,7 @@ export class ApiError extends Error {
     public status: number,
     public fields?: Record<string, string>,
     public retryAfter?: number,
+    public details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -26,9 +27,9 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
     /* corps non JSON */
   }
   if (!res.ok) {
-    const e = (data as { error?: { code?: string; message?: string; fields?: Record<string, string> } } | null)?.error;
+    const e = (data as { error?: { code?: string; message?: string; fields?: Record<string, string>; details?: Record<string, unknown> } } | null)?.error;
     const retry = Number(res.headers.get("Retry-After")) || undefined;
-    throw new ApiError(e?.code ?? "server_error", e?.message ?? "Erreur inattendue.", res.status, e?.fields, retry);
+    throw new ApiError(e?.code ?? "server_error", e?.message ?? "Erreur inattendue.", res.status, e?.fields, retry, e?.details);
   }
   return data as T;
 }

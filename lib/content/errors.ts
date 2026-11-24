@@ -10,6 +10,8 @@ export type ErrorCode =
   | "unsupported_media"
   | "payload_too_large"
   | "password_change_required"
+  | "conflict"
+  | "stale_revision"
   | "server_misconfigured";
 
 // "server_error" (500) est renvoyé pour toute erreur non prévue.
@@ -26,6 +28,8 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   unsupported_media: 415,
   payload_too_large: 413,
   password_change_required: 403,
+  conflict: 409,
+  stale_revision: 409,
   server_misconfigured: 500,
 };
 
@@ -33,14 +37,16 @@ export class AppError extends Error {
   code: ErrorCode;
   fields?: Record<string, string>;
   retryAfter?: number;
+  details?: Record<string, unknown>;
   constructor(
     code: ErrorCode,
     message: string,
-    extra?: { fields?: Record<string, string>; retryAfter?: number },
+    extra?: { fields?: Record<string, string>; retryAfter?: number; details?: Record<string, unknown> },
   ) {
     super(message);
     this.code = code;
     this.fields = extra?.fields;
     this.retryAfter = extra?.retryAfter;
+    this.details = extra?.details;
   }
 }
