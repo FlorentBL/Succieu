@@ -11,9 +11,9 @@
 | `salle-des-fetes` | `/espace-bureau/salle-des-fetes` | Réservations, conflits, exports, journal (porté de sdf.succieu.fr) | « Module Salle des fêtes » |
 | `documents` | `/espace-bureau/documents` | Lien vers le drive (`BUREAU_DRIVE_URL`) | `lib/hub/drive.ts` |
 
-**Droits** : rôle `admin` (tout en écriture, administration des comptes, modération) ou `membre` avec un niveau par module : `none` (invisible), `read`, `write`. Un compte créé ou réinitialisé reçoit un mot de passe provisoire (`xxxx-xxxx-xxxx`, affiché une seule fois) qu'il doit changer à la première connexion ; le dernier administrateur actif ne peut être ni désactivé ni rétrogradé. **Variables** : voir la section suivante. **Premier administrateur** : `scripts/hub-create-admin.mjs`. **Migration** depuis les anciennes applications : `scripts/hub-migrate.mjs` (`--dry-run` par défaut, `--apply` explicite : comptes depuis une liste hors dépôt + fiche imprimable 0600, import du suivi, import de la salle des fêtes ; idempotent). **Déploiement et retour arrière** : `docs/deploiement-hub.md` ; redirections `deploy/nginx/`.
+**Droits** : rôle `admin` (tout en écriture, administration des comptes, modération) ou `membre` avec un niveau par module : `none` (invisible), `read`, `write`. Les mots de passe sont attribués par l'administrateur (généré `xxxx-xxxx-xxxx` ou saisi, affiché une seule fois) et ne peuvent pas être changés par la personne ; ils sont les mêmes sur le hub et sur le drive quand la synchro est active (voir « Synchronisation des comptes avec le drive ») ; le dernier administrateur actif ne peut être ni désactivé ni rétrogradé. **Variables** : voir la section suivante. **Premier administrateur** : `scripts/hub-create-admin.mjs`. **Migration** depuis les anciennes applications : `scripts/hub-migrate.mjs` (`--dry-run` par défaut, `--apply` explicite : comptes depuis une liste hors dépôt + fiche imprimable 0600, import du suivi, import de la salle des fêtes ; idempotent). **Déploiement et retour arrière** : `docs/deploiement-hub.md` ; redirections `deploy/nginx/`.
 
-Tests : `npm test` (dont `lib/hub/parcours.test.ts` : admin crée un compte, connexion avec le provisoire, changement forcé, droits par module, reset, migration) et `node scripts/e2e-hub.mjs` (mêmes parcours sur les vraies routes HTTP après `next build`).
+Tests : `npm test` (dont `lib/hub/parcours.test.ts` : admin crée un compte avec mot de passe attribué, connexion directe, droits par module, reset, migration ; `lib/hub/drive-sync.test.ts` : synchro drive contre un faux serveur local) et `node scripts/e2e-hub.mjs` (mêmes parcours sur les vraies routes HTTP après `next build`).
 
 ---
 
@@ -29,6 +29,10 @@ Voir `.env.example`. Aucun secret dans le dépôt.
 | `SESSION_SECRET` | Clé HMAC des sessions, 32 caractères minimum. |
 | `REVIEW_API_TOKEN` | Jeton Bearer de l'agent de relecture, 24 caractères minimum. |
 | `BUREAU_DRIVE_URL` | Facultatif : adresse https du drive (module Documents) ; défaut `https://drive.succieu.fr/`. |
+| `DRIVE_URL` | Facultatif : adresse https du drive oCIS **pour la synchronisation des comptes** (ex. `https://drive.succieu.fr`). Distincte de `BUREAU_DRIVE_URL` (simple lien). |
+| `DRIVE_ADMIN_USER` | Facultatif : compte administrateur oCIS (`admin`). |
+| `DRIVE_ADMIN_PASSWORD` | Facultatif, **secret** : mot de passe de ce compte (jamais dans le dépôt). Les trois variables `DRIVE_*` doivent être présentes ; sinon la synchro est désactivée et le hub fonctionne seul (préversion, tests). |
+| `DRIVE_MAIL_DOMAIN` | Facultatif : domaine de l'adresse technique (`<identifiant>@<domaine>`, défaut `drive.succieu.fr`) exigée par oCIS à la création d'un compte drive. |
 | `HUB_SESSION_HOURS` | Facultatif : durée de la session du hub en heures (défaut 2160 = 90 jours). |
 | `SITE_ORIGINS` | Facultatif : origines supplémentaires acceptées pour les écritures (séparées par des virgules). |
 
@@ -66,42 +70,56 @@ Toute session humaine est celle du hub (section suivante) : cookie `succieu_hub`
 
 Le hub `/espace-bureau` a remplacé les anciens mots de passe communs. Code : `lib/hub/`.
 
-- **Comptes** : `DATA_DIR/users.json` (écriture atomique + verrou). Champs : `id` stable, `identifier` (prénom en minuscules sans accent, unique ; la saisie à la connexion est normalisée), `displayName`, `role` (`admin` | `membre`), `active`, `passwordHash` (scrypt, `lib/auth/password.ts`), `passwordVersion`, `mustChangePassword`, `rights`, `createdAt`, `updatedAt`.
+- **Comptes** : `DATA_DIR/users.json` (écriture atomique + verrou). Champs : `id` stable, `identifier` (prénom en minuscules sans accent, unique ; la saisie à la connexion est normalisée), `displayName`, `role` (`admin` | `membre`), `active`, `passwordHash` (scrypt, `lib/auth/password.ts`), `passwordVersion`, `driveLogin` (facultatif, défaut = `identifier`), `driveSync` (`{ at?, error? }`, sans secret), `rights`, `createdAt`, `updatedAt`.
 - **Droits** : `{ "actus-agenda" | "espace-bureau" | "salle-des-fetes" | "documents": "none" | "read" | "write" }` ; un module absent vaut `none` ; un admin a `write` partout. Registre des modules (id, libellé, chemin, description) : `lib/hub/modules.ts`, unique endroit à compléter par les volets suivants.
 - **Session** : cookie `succieu_hub`, jeton `base64url({uid, pv, exp}).HMAC-SHA256` (`SESSION_SECRET`), httpOnly, `Secure` en production, **`SameSite=Lax`** (Strict casse l'ouverture depuis un lien WhatsApp : le cookie n'est pas envoyé au rechargement), durée `HUB_SESSION_HOURS` (90 jours par défaut). Invalidée si le compte est désactivé ou si le mot de passe change (`pv` ≠ `passwordVersion`).
-- **Mot de passe provisoire** : création et réinitialisation génèrent `xxxx-xxxx-xxxx`, renvoyé une seule fois, avec `mustChangePassword`. Tant qu'il est vrai, toute garde refuse avec 403 `password_change_required` ; seuls `session`, `password` et `logout` répondent.
+- **Mots de passe attribués par l'administrateur uniquement** (décision du 24/11/2026) : l'utilisateur ne peut pas changer son mot de passe (ni écran, ni route ; « Mon compte » renvoie à l'administrateur). À la création et à la réinitialisation, l'administrateur choisit « Générer » (`xxxx-xxxx-xxxx`, lisible) ou saisit un mot de passe (10 caractères minimum). Il est renvoyé une seule fois (copier / imprimer), jamais journalisé ni relu. Plus de changement imposé : l'ancien champ `mustChangePassword` d'un `users.json` existant est ignoré et disparaît à la prochaine écriture du compte (aucun compte bloqué). Un administrateur peut réinitialiser son propre mot de passe.
 - **Limitation** : 5 échecs / 15 min par IP **et** par identifiant (mémoire du processus), puis 429 `rate_limited` + `Retry-After`. Un identifiant verrouillé l'est même avec le bon mot de passe.
 - **Audit** : `DATA_DIR/hub-audit.jsonl`, une ligne JSON `{date, actor, action, detail?, ip?}` (connexions, échecs, créations, droits, réinitialisations) ; jamais de mot de passe ni d'empreinte.
 
 | Méthode et chemin | Accès | Description |
 |---|---|---|
-| `POST /api/hub/login` | public + origine | `{ identifier, password }` → session (`authenticated`, `user`, `role`, `rights`, `mustChangePassword`) + cookie. 401 générique si identifiant inconnu, mot de passe faux ou compte désactivé. |
+| `POST /api/hub/login` | public + origine | `{ identifier, password }` → session (`authenticated`, `user`, `role`, `rights`) + cookie. 401 générique si identifiant inconnu, mot de passe faux ou compte désactivé. |
 | `POST /api/hub/logout` | origine | Efface le cookie. |
 | `GET /api/hub/session` | connecté | Même corps que la connexion ; 401 sans session. |
-| `POST /api/hub/password` | connecté + origine | `{ oldPassword, newPassword }` (10 caractères min., différent de l'ancien) ; renvoie la session et un nouveau cookie (les autres sessions tombent). |
 
-**Gardes serveur** (`lib/hub/guards.ts`, logique pure testable dans `lib/hub/access.ts`) : `requireUser({ allowPasswordChange? })`, `requireAdmin()`, `requireModule(module, "read" | "write", req?)` — avec `req`, une écriture exige aussi l'origine (`assertSameOrigin`). Erreurs : 401 `unauthorized`, 403 `forbidden`, 403 `password_change_required`.
+**Gardes serveur** (`lib/hub/guards.ts`, logique pure testable dans `lib/hub/access.ts`) : `requireUser()`, `requireAdmin()`, `requireModule(module, "read" | "write", req?)` — avec `req`, une écriture exige aussi l'origine (`assertSameOrigin`). Erreurs : 401 `unauthorized`, 403 `forbidden`.
 
-**Bibliothèque admin** (`lib/hub/users.ts`, utilisée par le volet 2) : `createUser`, `setActive`, `resetPassword`, `updateRoleAndRights`, `listUsers`, `toPublic`. Impossible de désactiver ou rétrograder le dernier admin actif (409 `invalid_transition`).
+**Bibliothèque admin** (`lib/hub/users.ts`, utilisée par le volet 2) : `createUser`, `setActive`, `setPassword`, `setDriveState`, `updateRoleAndRights`, `listUsers`, `toPublic`. Impossible de désactiver ou rétrograder le dernier admin actif (409 `invalid_transition`).
 
 **Premier admin** (sur le serveur, saisie masquée) : `DATA_DIR=/var/lib/succieu-web node scripts/hub-create-admin.mjs <prenom> ["Nom affiché"]`.
 
 ## Console d'administration des comptes (`/espace-bureau/administration`)
 
-Page `noindex` (sous `/espace-bureau`, donc hors sitemap et `Disallow` dans `robots.txt`), servie dans la coquille du hub (groupe `(hub)`, garde `requireHubPageUser` + rôle `admin` ; un membre est redirigé vers l'accueil, la connexion et le mot de passe imposé sont ceux de la coquille). L'ancienne URL `/espace-bureau/admin` redirige (permanent) vers celle-ci. Fonctions : liste des comptes (nom, identifiant, rôle, actif, dernière connexion tirée du journal), création (identifiant proposé = prénom sans accent, modifiable), grille de droits Aucun / Lecture / Écriture à enregistrement explicite, réinitialisation du mot de passe, désactivation / réactivation, changement de rôle, journal filtrable par personne. Le mot de passe provisoire n'est affiché qu'une fois (copier / imprimer), jamais relu ni journalisé. Confirmation dans la page (bandeau Confirmer / Annuler, pas de `window.confirm`) avant enregistrement des droits, réinitialisation et (dés)activation. Garde-fous : on ne peut ni se désactiver, ni changer son propre rôle, ni réinitialiser son propre mot de passe (409 `invalid_transition`) ; le dernier admin actif est protégé (bibliothèque `lib/hub/users.ts`).
+Page `noindex` (sous `/espace-bureau`, donc hors sitemap et `Disallow` dans `robots.txt`), servie dans la coquille du hub (groupe `(hub)`, garde `requireHubPageUser` + rôle `admin` ; un membre est redirigé vers l'accueil, la connexion et le mot de passe imposé sont ceux de la coquille). L'ancienne URL `/espace-bureau/admin` redirige (permanent) vers celle-ci. Présentation **compacte** : un tableau (nom, identifiant, rôle, actif, droits résumés, état du drive, dernière connexion tirée du journal) et un **panneau de modification d'un seul compte à la fois** (rôle, grille de droits Aucun / Lecture / Écriture à enregistrement explicite, identifiant du drive, réinitialisation du mot de passe, désactivation / réactivation). Création (identifiant proposé = prénom sans accent, modifiable ; identifiant du drive si différent). Choix du mot de passe « Générer » ou « Saisir » à la création et à la réinitialisation ; affiché une seule fois (copier / imprimer), jamais relu ni journalisé. Écran **« Comptes du drive »** (visible si la synchro est active) : comparaison hub ↔ drive en lecture seule (comptes drive sans compte hub, comptes hub sans compte drive, désactivés d'un côté seulement) et action « Rattacher ». Journal filtrable par personne. Confirmation dans la page (bandeau Confirmer / Annuler, pas de `window.confirm`) avant enregistrement, réinitialisation et (dés)activation. Garde-fous : on ne peut ni se désactiver, ni changer son propre rôle (409 `invalid_transition`) ; le dernier admin actif est protégé (bibliothèque `lib/hub/users.ts`).
 
 Logique : `lib/hub/admin.ts` (testée dans `lib/hub/admin.test.ts`) ; composants : `components/hub-admin/`. Toutes les routes exigent la session hub admin (401/403) et, en écriture, l'origine.
 
 | Méthode et chemin | Description |
 |---|---|
 | `GET /api/admin/users` | `{ users }` (vue publique + `lastLogin`, sans empreinte). |
-| `POST /api/admin/users` | `{ displayName, identifier?, role?, rights? }` → 201 `{ user, temporaryPassword }`. |
-| `PATCH /api/admin/users/<id>` | `{ role?, rights?, displayName? }` → `{ user }` ; journalisé (`user.update`). |
-| `POST /api/admin/users/<id>/active` | `{ active: boolean }` → `{ user }`. |
-| `POST /api/admin/users/<id>/reset-password` | → `{ user, temporaryPassword }` (une seule fois). |
+| `POST /api/admin/users` | `{ displayName, identifier?, role?, rights?, driveLogin?, passwordMode?: "generate"\|"custom", password? }` → 201 `{ user, password, drive }` (`drive.status` : `disabled`, `created`, `attached`). Le drive passe d'abord : s'il refuse (502 `drive_sync_failed`), rien n'est créé. |
+| `PATCH /api/admin/users/<id>` | `{ role?, rights?, displayName?, driveLogin? }` → `{ user }` ; journalisé (`user.update`). |
+| `POST /api/admin/users/<id>/active` | `{ active: boolean }` → `{ user, drive }`. Le hub change toujours ; le drive suit (`accountEnabled`), un échec est consigné dans `driveSync.error` et renvoyé (`drive.status: "error"`). |
+| `POST /api/admin/users/<id>/reset-password` | `{ passwordMode?, password? }` → `{ user, password, drive }` (une seule fois). Le drive d'abord : refus ⇒ 502 `drive_sync_failed`, hub inchangé (les deux restent identiques). |
+| `GET /api/admin/drive` | `{ enabled, rows }` : comparaison hub ↔ drive (lecture seule) ; `enabled: false` sans variables `DRIVE_*`. |
+| `POST /api/admin/drive/attach` | `{ userId, driveLogin }` : rattache un compte hub à un compte drive existant (aucune écriture sur le drive). |
 | `GET /api/admin/audit?person=&limit=` | `{ entries }` du journal `hub-audit.jsonl`, plus récentes d'abord (limite 500). |
 
 Les routes `/api/admin/submissions*` sont celles de la modération (session hub, rôle admin) ; `/api/admin/login|logout|session` n'existent plus.
+
+## Synchronisation des comptes avec le drive (oCIS)
+
+Décision du 24/11/2026 : l'accès au hub et au drive (`drive.succieu.fr`, oCIS 8, IdP intégré) sont **les mêmes** (même identifiant, même mot de passe), pilotés depuis l'administration du hub. Tout le conseil municipal a un compte drive ; les dossiers et espaces réservés (ex. « Bureau ») se gèrent **dans le drive** : le hub ne crée, ne modifie ni ne supprime jamais un espace, une permission ou un compte drive. Code : `lib/hub/drive-sync.ts` (côté serveur uniquement), orchestration dans `lib/hub/admin.ts`.
+
+- **Authentification auprès d'oCIS** : la basic auth est coupée côté oCIS ; le hub obtient un jeton OIDC de `admin` par le flux de `docs/drive-bureau.md` du dépôt du serveur (§ « Procédures ») : `/.well-known/openid-configuration`, `authorization_endpoint` (code + PKCE, client `web`, redirect `<DRIVE_URL>/oidc-callback.html`), `POST /signin/v1/identifier/_/logon` (JSON, `Kopano-Konnect-XSRF: 1`, `Origin` et `Referer`), rejeu de l'autorisation (302 avec `code`), échange sur le `token_endpoint`. Jeton mis en cache jusqu'à son expiration (moins 30 s), renouvelé sur 401. Sans `DRIVE_URL`, `DRIVE_ADMIN_USER` et `DRIVE_ADMIN_PASSWORD`, la synchro est **désactivée** : l'administration l'indique et le hub fonctionne seul. `DRIVE_URL` est en https (http accepté seulement vers localhost, pour les tests).
+- **Compte hub** : `driveLogin` (défaut = identifiant ; modifiable, ex. `secretariat`) et `driveSync` (`at` = dernière synchro réussie, `error` = dernière erreur).
+- **Création** : compte drive absent → `POST /graph/v1.0/users` (`onPremisesSamAccountName`, `displayName`, `mail` technique, `passwordProfile`) puis rôle « User » (`appRoleAssignments`) ; présent → rattaché (seul le mot de passe est aligné, rôle et espaces intacts). Le drive passe avant le hub.
+- **Mot de passe** (création / réinitialisation) : `PATCH /graph/v1.0/users/<login>` `passwordProfile` sur le drive **d'abord** ; le hub n'enregistre le nouveau mot de passe que si le drive l'a accepté (sinon message clair, hub inchangé, erreur consignée dans `driveSync.error`). Une réinitialisation sur un compte hub sans compte drive crée celui-ci.
+- **Désactivation / réactivation** : `PATCH` `accountEnabled` false / true. Le hub change toujours (la sécurité ne dépend pas du drive) ; une erreur du drive est consignée et affichée. **Non vérifié** : la prise en charge de `accountEnabled` par Libre Graph d'oCIS 8.0.10 n'a pas pu être testée (aucun accès au drive) ; si le drive la refuse, l'état « Erreur » apparaît sur le compte, rien n'est supprimé, et la désactivation côté drive se fait alors à la main. À vérifier au premier essai réel.
+- **Jamais** : `DELETE`, ni appel aux espaces (`/drives`) ni aux permissions ; le module n'émet que des `GET`, `POST` et `PATCH` sur `/graph/v1.0/users…` (test dédié).
+- **Écran « Comptes du drive »** et **`node scripts/drive-accounts.mjs`** (lecture seule, mêmes variables `DRIVE_*` + `DATA_DIR`, `--json` possible) : comptes drive sans compte hub, comptes hub sans compte drive, désactivés d'un côté seulement.
+- **Risque assumé** : le hub détient un accès administrateur au drive (le secret `DRIVE_ADMIN_PASSWORD` est dans l'environnement du service). Fichier d'environnement en 640 root:loic ; ne jamais le journaliser ni le versionner.
 
 ## Coquille du hub (`/espace-bureau`)
 
@@ -110,15 +128,14 @@ Pages, toutes `noindex` (layout `app/espace-bureau/layout.tsx`), hors sitemap, `
 | Chemin | Fichier | Rôle |
 |---|---|---|
 | `/espace-bureau/connexion` | `connexion/page.tsx` | Identifiant + mot de passe ; message dédié si limité (429), identifiant/mot de passe faux, serveur non configuré. Déjà connecté : redirigé. |
-| `/espace-bureau/nouveau-mot-de-passe` | `nouveau-mot-de-passe/page.tsx` | Écran imposé tant que `mustChangePassword` ; toute autre page du hub y redirige. |
 | `/espace-bureau` | `(hub)/page.tsx` | Accueil : une tuile par module autorisé (icône, titre, description, résumé facultatif, « Lecture seule »). |
-| `/espace-bureau/compte` | `(hub)/compte/page.tsx` | Changer son mot de passe, taille du texte, se déconnecter. |
+| `/espace-bureau/compte` | `(hub)/compte/page.tsx` | Taille du texte, déconnexion ; « Mot de passe oublié : s'adresser à l'administrateur ». |
 | `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; console de gestion des comptes (`components/hub-admin/`). `/espace-bureau/admin` y redirige. |
 | `/espace-bureau/<chemin du module>` | `(hub)/[module]/page.tsx` | Emplacement provisoire des modules sans page propre. |
 | `/espace-bureau/actualites` | `(hub)/actualites/page.tsx` | Module Actualités & agenda (`actus-agenda`) : saisie et historique. |
 | `/espace-bureau/actualites/moderation[/<id>]` | `(hub)/actualites/moderation/` | Modération, admin seulement (les autres sont renvoyés au module). Anciennes URL `/espace-bureau/moderation*` : redirection 308 (`next.config.ts`). |
 
-Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exige une session (`requireHubPageUser` : sinon redirection vers la connexion ou vers le changement de mot de passe), puis affiche `HubNav` (`components/hub/HubNav.tsx`) : Accueil, modules autorisés (niveau ≥ lecture, ordre du registre), Administration (admin), Mon compte, taille du texte. Sur un module en lecture seule, un bandeau jaune « Lecture seule » s'affiche. Le layout ne protège pas les données : chaque page de module appelle sa propre garde.
+Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exige une session (`requireHubPageUser` : sinon redirection vers la connexion), puis affiche `HubNav` (`components/hub/HubNav.tsx`) : Accueil, modules autorisés (niveau ≥ lecture, ordre du registre), Administration (admin), Mon compte, taille du texte. Sur un module en lecture seule, un bandeau jaune « Lecture seule » s'affiche. Le layout ne protège pas les données : chaque page de module appelle sa propre garde.
 
 **Charte** : aucun nouveau thème. Les pages reprennent `PageHero` (variante `slim`), `PageShell`, `Card`, les champs et boutons de `components/bureau/fields.tsx` (cibles ≥ 44 px, anneau de focus `--color-focus`), les polices Bricolage/Source Sans et les jetons de `app/globals.css`. L'en-tête et le pied du site public restent visibles au-dessus et en dessous.
 
@@ -256,7 +273,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | `payload_too_large` | 413 | Image > 40 Mo. |
 | `unsupported_media` | 415 | Image non jpeg/png/webp. |
 | `validation_failed` | 422 | Champs invalides : `error.fields` = `{ champ: message lisible }` (avis : `corrected.<champ>`). |
-| `password_change_required` | 403 | Hub : mot de passe provisoire à changer avant toute autre action. |
+| `drive_sync_failed` | 502 | Hub : le drive a refusé ou ne répond pas (message lisible ; rien n'a été changé dans le hub pour un mot de passe). |
 | `conflict` | 409 | Salle déjà réservée (`error.details.conflicts`). |
 | `stale_revision` | 409 | Réservation modifiée entre-temps (`revision` périmée). |
 | `rate_limited` | 429 | Trop de tentatives de connexion au hub (`Retry-After`). |
@@ -265,7 +282,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 ## Tests
 
-`npm test` (node:test via `scripts/ts-resolve.mjs`) : parcours complet du hub et migration (`lib/hub/parcours.test.ts`) ; validation, transitions, sessions, empreintes, écriture atomique et verrou ; salle des fêtes (`lib/salle-des-fetes/salle.test.ts`) : conflits, annulation/restauration, révision, lecture sans données personnelles, exports, projection publique, import idempotent ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
+`npm test` (node:test via `scripts/ts-resolve.mjs`) : parcours complet du hub et migration (`lib/hub/parcours.test.ts`) ; validation, transitions, sessions, empreintes, écriture atomique et verrou ; salle des fêtes (`lib/salle-des-fetes/salle.test.ts`) : conflits, annulation/restauration, révision, lecture sans données personnelles, exports, projection publique, import idempotent ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mot de passe attribué, limitation, dernier admin, audit, CLI ; synchro drive (`lib/hub/drive-sync.test.ts`) : **faux serveur HTTP local** (Konnect + Graph simulés, aucun appel réel) — jeton OIDC, création, rattachement, mot de passe refusé ⇒ hub inchangé, désactivation, synchro désactivée sans variables, aucune suppression ni espace touché, comparaison, migration.
 
 ## Pages publiques
 

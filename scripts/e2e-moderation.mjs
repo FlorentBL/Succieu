@@ -76,7 +76,6 @@ try {
   const hubLogin = async (id, pw) => {
     const r = await post("/api/hub/login", { identifier: id, password: pw });
     assert.equal(r.res.status, 200, `connexion ${id}`);
-    assert.equal(r.json.mustChangePassword, false, "mot de passe non provisoire");
     return cookieOf(r.res);
   };
   const adminCookie = await hubLogin("admin", ADMIN_PW);

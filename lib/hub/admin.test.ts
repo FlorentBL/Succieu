@@ -48,7 +48,7 @@ test("droits : un membre ou une absence de session reçoit 401/403 sur toutes le
     assert.equal(await code(adminCreateUser(u, { displayName: "Bob" })), want);
     assert.equal(await code(adminUpdateUser(u, admin.id, { role: "membre" })), want);
     assert.equal(await code(adminSetActive(u, membre.id, false)), want);
-    assert.equal(await code(adminResetPassword(u, membre.id)), want);
+    assert.equal(await code(adminResetPassword(u, membre.id, {})), want);
     assert.equal(await code(adminReadAudit(u)), want);
   }
 });
@@ -57,32 +57,38 @@ test("création : identifiant proposé, droits, mot de passe provisoire renvoyé
   const { admin } = await seed();
   const r = await adminCreateUser(admin, { displayName: "Zoé Test", rights: { documents: "write" } }, "2.2.2.2");
   assert.equal(r.user.identifier, "zoe");
-  assert.equal(r.user.mustChangePassword, true);
   assert.equal(r.user.rights.documents, "write");
-  assert.match(r.temporaryPassword, /^[a-z2-9]{4}(-[a-z2-9]{4}){2}$/);
+  assert.match(r.password, /^[a-z2-9]{4}(-[a-z2-9]{4}){2}$/);
+  assert.equal(r.drive.status, "disabled");
   assert.ok(!("passwordHash" in r.user));
   const stored = (await getUserById(r.user.id)) as HubUser;
-  assert.ok(await verifyPassword(r.temporaryPassword, stored.passwordHash));
+  assert.ok(await verifyPassword(r.password, stored.passwordHash));
   const log = await fs.readFile(path.join(dir, "hub-audit.jsonl"), "utf8");
-  assert.ok(!log.includes(r.temporaryPassword) && !log.includes("scrypt"));
+  assert.ok(!log.includes(r.password) && !log.includes("scrypt"));
   assert.match(log, /user\.create/);
   const list = JSON.stringify(await adminListUsers());
-  assert.ok(!list.includes(r.temporaryPassword) && !list.includes("scrypt"), "la liste ne renvoie jamais le mot de passe");
+  assert.ok(!list.includes(r.password) && !list.includes("scrypt"), "la liste ne renvoie jamais le mot de passe");
 });
 
 test("réinitialisation : nouveau provisoire une seule fois, session invalidée, jamais journalisé", async () => {
   const { admin, membre } = await seed();
   const before = (await getUserById(membre.id)) as HubUser;
-  const r = await adminResetPassword(admin, membre.id);
+  const r = await adminResetPassword(admin, membre.id, {});
   const after = (await getUserById(membre.id)) as HubUser;
   assert.equal(after.passwordVersion, before.passwordVersion + 1);
-  assert.ok(await verifyPassword(r.temporaryPassword, after.passwordHash));
-  assert.ok(!JSON.stringify(r.user).includes(r.temporaryPassword));
+  assert.ok(await verifyPassword(r.password, after.passwordHash));
+  assert.ok(!JSON.stringify(r.user).includes(r.password));
   const log = await fs.readFile(path.join(dir, "hub-audit.jsonl"), "utf8");
-  assert.ok(!log.includes(r.temporaryPassword));
+  assert.ok(!log.includes(r.password));
   assert.match(log, /user\.reset-password/);
-  assert.equal(await code(adminResetPassword(admin, admin.id)), "invalid_transition");
-  assert.equal(await code(adminResetPassword(admin, "inconnu")), "not_found");
+  assert.equal(await code(adminResetPassword(admin, "inconnu", {})), "not_found");
+  // mot de passe saisi : 10 caractères minimum, sinon rien n'est changé
+  assert.equal(await code(adminResetPassword(admin, membre.id, { passwordMode: "custom", password: "court" })), "validation_failed");
+  const own = await adminResetPassword(admin, membre.id, { passwordMode: "custom", password: "mot-de-passe-choisi" });
+  assert.equal(own.password, "mot-de-passe-choisi");
+  assert.ok(await verifyPassword("mot-de-passe-choisi", ((await getUserById(membre.id)) as HubUser).passwordHash));
+  // un administrateur peut aussi réinitialiser son propre mot de passe (personne d'autre ne le peut)
+  assert.ok((await adminResetPassword(admin, admin.id, {})).password);
 });
 
 test("garde-fous : pas d'auto-désactivation ni d'auto-rétrogradation, dernier admin protégé", async () => {
@@ -93,7 +99,7 @@ test("garde-fous : pas d'auto-désactivation ni d'auto-rétrogradation, dernier 
   // Un second admin ne peut pas retirer le dernier admin actif, mais peut désactiver le premier.
   const second = (await createUser({ displayName: "Marc Test", role: "admin", password: "mot-de-passe-marc" }, { actor: "t" })).user;
   const secondFull = (await getUserById(second.id)) as HubUser;
-  assert.equal((await adminSetActive(secondFull, admin.id, false)).active, false);
+  assert.equal((await adminSetActive(secondFull, admin.id, false)).user.active, false);
   assert.equal(await code(adminUpdateUser(admin, second.id, { role: "membre" })), "invalid_transition");
   assert.equal((await getUserById(second.id))?.role, "admin");
 });
@@ -108,8 +114,8 @@ test("droits par module : enregistrement journalisé, valeurs invalides refusée
   const entries = await adminReadAudit(admin, "alice");
   assert.ok(entries.some((e) => e.action === "user.update" && e.detail?.includes("salle-des-fetes")));
   const off = await adminSetActive(admin, membre.id, false);
-  assert.equal(off.active, false);
-  assert.equal((await adminSetActive(admin, membre.id, true)).active, true);
+  assert.equal(off.user.active, false);
+  assert.equal((await adminSetActive(admin, membre.id, true)).user.active, true);
 });
 
 test("journal : dernière connexion, filtre par personne, lignes illisibles ignorées", async () => {

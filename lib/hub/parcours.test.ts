@@ -8,14 +8,14 @@ import { resetRateLimits } from "../auth/rate-limit";
 import { AppError } from "../content/errors";
 import { checkModule, checkUser } from "./access";
 import { adminCreateUser, adminResetPassword, adminSetActive, adminUpdateUser } from "./admin";
-import { hubChangePassword, hubLogin } from "./auth";
+import { hubLogin } from "./auth";
 import { resolveHubUser } from "./session";
 import { createUser, getUserById, getUserByIdentifier, listUsers, type HubUser } from "./users";
 import { formatAccountsReport, migrateAccounts, parseAccountSpecs } from "./migrate";
 
 /**
  * Parcours complet, sans navigateur, sur la logique que les routes appellent telle quelle
- * (hubLogin / hubChangePassword / admin* / checkModule). Les routes Next dépendent de
+ * (hubLogin / admin* / checkModule). Les routes Next dépendent de
  * `next/headers` et ne sont pas appelables hors serveur : le HTTP réel est couvert par
  * scripts/e2e-hub.mjs.
  */
@@ -46,54 +46,44 @@ const code = async (p: Promise<unknown> | (() => unknown)) => {
   }
 };
 
-test("parcours : admin crée un compte, provisoire, changement forcé, droits par module, reset", async () => {
+test("parcours : admin crée un compte avec mot de passe attribué, droits par module, reset, désactivation", async () => {
   const admin = (await createUser({ displayName: "Admin Test", role: "admin", password: "mot-de-passe-admin" }, { actor: "t" })).user;
   const adminRow = (await getUserById(admin.id)) as HubUser;
 
-  // 1. l'admin crée un compte avec lecture sur Documents, rien d'autre
-  const created = await adminCreateUser(adminRow, { displayName: "Camille Test", rights: { documents: "read" } }, "3.3.3.3");
-  const temp = created.temporaryPassword;
-  assert.equal(created.user.mustChangePassword, true);
+  // 1. l'admin crée un compte (mot de passe saisi) avec lecture sur Documents, rien d'autre
+  const created = await adminCreateUser(adminRow, { displayName: "Camille Test", rights: { documents: "read" }, passwordMode: "custom", password: "mot-de-passe-camille" }, "3.3.3.3");
+  assert.equal(created.password, "mot-de-passe-camille");
 
-  // 2. connexion avec le provisoire : session ouverte mais toute garde refuse tant que non changé
-  const first = await hubLogin(req(), "Camille", temp);
-  assert.equal(await code(() => checkUser(first.user)), "password_change_required");
-  assert.equal(await code(() => checkModule(first.user, "documents", "read")), "password_change_required");
-
-  // 3. changement forcé (ancien faux, trop court, puis valide) ; l'ancienne session tombe
-  assert.equal(await code(hubChangePassword(req(), first.user, { oldPassword: "faux", newPassword: "nouveau-mot-de-passe" })), "unauthorized");
-  assert.equal(await code(hubChangePassword(req(), first.user, { oldPassword: temp, newPassword: "court" })), "validation_failed");
-  const changed = await hubChangePassword(req(), first.user, { oldPassword: temp, newPassword: "nouveau-mot-de-passe" });
-  assert.equal(await resolveHubUser(first.token), null);
-  const camille = (await resolveHubUser(changed.token)) as HubUser;
+  // 2. connexion directe, sans changement imposé ; aucune route de changement par l'utilisateur
+  const first = await hubLogin(req(), "Camille", created.password);
+  const camille = (await resolveHubUser(first.token)) as HubUser;
   assert.equal(checkUser(camille).id, camille.id);
 
-  // 4. droits : lecture Documents seulement ; refus ailleurs et pour l'administration
+  // 3. droits : lecture Documents seulement ; refus ailleurs et pour l'administration
   assert.equal(await code(() => checkModule(camille, "documents", "read")), "ok");
   assert.equal(await code(() => checkModule(camille, "documents", "write")), "forbidden");
   assert.equal(await code(() => checkModule(camille, "salle-des-fetes", "read")), "forbidden");
   assert.equal(await code(adminCreateUser(camille, { displayName: "Intrus" })), "forbidden");
 
-  // 5. l'admin passe Camille en écriture sur la salle des fêtes (effet immédiat, sans reconnexion)
+  // 4. l'admin passe Camille en écriture sur la salle des fêtes (effet immédiat, sans reconnexion)
   await adminUpdateUser(adminRow, camille.id, { rights: { documents: "read", "salle-des-fetes": "write" } });
-  const refreshed = (await resolveHubUser(changed.token)) as HubUser;
+  const refreshed = (await resolveHubUser(first.token)) as HubUser;
   assert.equal(await code(() => checkModule(refreshed, "salle-des-fetes", "write")), "ok");
   assert.equal(await code(() => checkModule(refreshed, "actus-agenda", "read")), "forbidden");
 
-  // 6. reset : session invalidée, ancien mot de passe refusé, nouveau provisoire, changement forcé de nouveau
-  const reset = await adminResetPassword(adminRow, camille.id);
-  assert.equal(await resolveHubUser(changed.token), null);
-  assert.equal(await code(hubLogin(req(), "camille", "nouveau-mot-de-passe")), "unauthorized");
-  const again = await hubLogin(req(), "camille", reset.temporaryPassword);
-  assert.equal(again.user.mustChangePassword, true);
+  // 5. reset généré : session invalidée, ancien mot de passe refusé, nouveau accepté
+  const reset = await adminResetPassword(adminRow, camille.id, {});
+  assert.equal(await resolveHubUser(first.token), null);
+  assert.equal(await code(hubLogin(req(), "camille", created.password)), "unauthorized");
+  assert.ok(await hubLogin(req(), "camille", reset.password));
 
-  // 7. désactivation : plus de connexion
+  // 6. désactivation : plus de connexion
   await adminSetActive(adminRow, camille.id, false);
-  assert.equal(await code(hubLogin(req(), "camille", reset.temporaryPassword)), "unauthorized");
+  assert.equal(await code(hubLogin(req(), "camille", reset.password)), "unauthorized");
 
-  // 8. le journal ne contient ni mot de passe ni empreinte
+  // 7. le journal ne contient ni mot de passe ni empreinte
   const log = await fs.readFile(path.join(dir, "hub-audit.jsonl"), "utf8");
-  for (const secret of [temp, reset.temporaryPassword, "nouveau-mot-de-passe", "scrypt$"]) assert.ok(!log.includes(secret));
+  for (const secret of [created.password, reset.password, "scrypt$"]) assert.ok(!log.includes(secret));
 });
 
 const specs = [
@@ -124,7 +114,7 @@ test("migration comptes : réel idempotent, fiche 0600, aucun mot de passe dans 
   assert.deepEqual(r.created.map((c) => c.identifier), ["alice", "bob", "alice2"]);
   assert.equal(((await fs.stat(sheet)).mode & 0o777).toString(8), "600");
   const text = await fs.readFile(sheet, "utf8");
-  const pws = [...text.matchAll(/Mot de passe provisoire : (\S+)/g)].map((m) => m[1]);
+  const pws = [...text.matchAll(/Mot de passe : (\S+)/g)].map((m) => m[1]);
   assert.equal(pws.length, 3);
   assert.ok(!JSON.stringify(r).includes(pws[0]) && !formatAccountsReport(r, true).includes(pws[0]));
   const log = await fs.readFile(path.join(dir, "hub-audit.jsonl"), "utf8");
@@ -132,7 +122,7 @@ test("migration comptes : réel idempotent, fiche 0600, aucun mot de passe dans 
   assert.match(log, /user\.create/);
   // connexion avec le provisoire de la fiche, droits conservés
   const alice = await hubLogin(req(), "alice", pws[0]);
-  assert.equal(alice.user.mustChangePassword, true);
+  assert.ok(alice.user.active);
   assert.equal((await getUserByIdentifier("alice"))!.rights["espace-bureau"], "write");
   assert.equal((await getUserByIdentifier("bob"))!.role, "admin");
 
@@ -166,7 +156,7 @@ test("CLI hub-migrate : simulation par défaut, fiche refusée dans le dépôt, 
   await fs.rm(sheet, { force: true });
   const real = execFileSync("node", ["scripts/hub-migrate.mjs", "--users", list, "--apply", "--sheet", sheet], { env }).toString();
   assert.match(real, /créés : 3/);
-  const pw = /Mot de passe provisoire : (\S+)/.exec(await fs.readFile(sheet, "utf8"))![1];
+  const pw = /Mot de passe : (\S+)/.exec(await fs.readFile(sheet, "utf8"))![1];
   assert.ok(!real.includes(pw));
   const second = execFileSync("node", ["scripts/hub-migrate.mjs", "--users", list, "--apply", "--sheet", sheet], { env }).toString();
   assert.match(second, /déjà présents \(inchangés\) : 3/);

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { LogoutButton } from "@/components/hub/LogoutButton";
-import { PasswordForm } from "@/components/hub/PasswordForm";
 import { TextSizeControl } from "@/components/hub/TextSize";
 import { Card } from "@/components/ui/Card";
 import { PageHero } from "@/components/ui/PageHero";
@@ -16,8 +15,8 @@ export default async function AccountPage() {
       <PageHero slim title="Mon compte" description={`${user.displayName} · identifiant « ${user.identifier} »`} />
       <PageShell width="narrow" className="space-y-6 pb-16 pt-2 sm:pb-20">
         <Card>
-          <h2 className="font-display text-xl font-bold text-moss-dark">Changer mon mot de passe</h2>
-          <PasswordForm />
+          <h2 className="font-display text-xl font-bold text-moss-dark">Mot de passe</h2>
+          <p className="mt-1 text-ink-muted">Mot de passe oublié : s’adresser à l’administrateur.</p>
         </Card>
         <Card>
           <h2 className="font-display text-xl font-bold text-moss-dark">Taille du texte</h2>

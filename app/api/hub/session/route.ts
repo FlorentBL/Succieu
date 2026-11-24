@@ -4,5 +4,5 @@ import { requireUser } from "@/lib/hub/guards";
 
 export const dynamic = "force-dynamic";
 
-/** Identité, rôle, droits, mustChangePassword. 401 sans session. */
-export const GET = handle(async () => ok(sessionBody(await requireUser({ allowPasswordChange: true }))));
+/** Identité, rôle, droits . 401 sans session. */
+export const GET = handle(async () => ok(sessionBody(await requireUser())));

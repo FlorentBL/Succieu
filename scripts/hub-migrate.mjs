@@ -8,9 +8,13 @@
 // Usage :
 //   DATA_DIR=<dossier du hub> node scripts/hub-migrate.mjs --users <comptes.json> \
 //     [--suivi <bureau.json> [--map correspondances.json]] [--sdf <dossier data de l'ancienne appli>] \
-//     [--sheet <fiche.txt>] [--site-url https://succieu.fr] [--apply]
+//     [--sheet <fiche.txt>] [--site-url https://succieu.fr] [--reset-all] [--apply]
+//   Avec DRIVE_URL, DRIVE_ADMIN_USER et DRIVE_ADMIN_PASSWORD, les comptes du drive sont créés ou rattachés
+//   et reçoivent le MÊME mot de passe que le hub. --reset-all : nouveau mot de passe commun aussi pour les
+//   comptes déjà présents (bascule). Sans ces variables, seul le hub est migré.
 //
 // comptes.json : [{ "displayName": "…", "identifier": "…"?, "role": "admin"|"membre"?, "rights": { "<module>": "read"|"write" }? }]
+//   "driveLogin" : identifiant du compte drive s'il diffère (ex. « secretariat »).
 //   modules : actus-agenda, espace-bureau, salle-des-fetes, documents. Fichier réel : ne jamais le versionner.
 // Fiche : écrite UNIQUEMENT avec --apply, en 0600, hors du dépôt (refusée sinon), sans écraser un fichier existant.
 // Les mots de passe ne sont jamais affichés ni journalisés.
@@ -36,9 +40,10 @@ const usersFile = opt("--users");
 const suiviFile = opt("--suivi");
 const mapFile = opt("--map");
 const sdfDir = opt("--sdf");
+const resetAll = flag("--reset-all");
 const siteUrl = (opt("--site-url") ?? "https://succieu.fr").replace(/\/$/, "");
 if (!usersFile) {
-  console.error("Usage : node scripts/hub-migrate.mjs --users <comptes.json> [--suivi bureau.json [--map m.json]] [--sdf dossier] [--sheet fiche.txt] [--apply]");
+  console.error("Usage : node scripts/hub-migrate.mjs --users <comptes.json> [--suivi bureau.json [--map m.json]] [--sdf dossier] [--sheet fiche.txt] [--reset-all] [--apply]");
   process.exit(2);
 }
 
@@ -74,10 +79,12 @@ try {
 
 // 1. Comptes
 try {
-  const r = await migrateAccounts(specs, { apply, sheetPath, siteUrl });
+  const driveUrl = process.env.DRIVE_URL ? new URL(process.env.DRIVE_URL).origin : undefined;
+  const r = await migrateAccounts(specs, { apply, sheetPath, siteUrl, driveUrl, resetExisting: resetAll });
   console.log(formatAccountsReport(r, apply));
-  if (apply && r.created.length) console.log(`Fiche imprimable : ${sheetPath} (0600) — à imprimer puis effacer.`);
-  if (apply) await audit({ actor: "migration", action: "hub.migrate.accounts", detail: `${r.created.length} créés, ${r.existing.length} déjà présents` });
+  if (r.failed.length) failed = true;
+  if (apply && (r.created.length || r.reset.length)) console.log(`Fiche imprimable : ${sheetPath} (0600) — à imprimer puis effacer.`);
+  if (apply) await audit({ actor: "migration", action: "hub.migrate.accounts", detail: `${r.created.length} créés, ${r.reset.length} réinitialisés, ${r.existing.length} déjà présents, ${r.failed.length} échecs` });
 } catch (e) {
   console.error(`Comptes : échec — ${e?.message ?? e}`);
   process.exit(1); // pas d'import sans comptes

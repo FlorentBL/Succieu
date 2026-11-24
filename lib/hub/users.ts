@@ -15,6 +15,13 @@ import {
 
 export type HubRole = "admin" | "membre";
 
+export type DriveSyncState = {
+  /** Dernière synchronisation réussie (ISO). */
+  at?: string;
+  /** Dernière erreur de synchronisation (message lisible). */
+  error?: string;
+};
+
 export type HubUser = {
   id: string;
   /** Prénom en minuscules sans accent, unique. */
@@ -25,14 +32,17 @@ export type HubUser = {
   passwordHash: string;
   /** Incrémentée à chaque changement de mot de passe : invalide les sessions. */
   passwordVersion: number;
-  mustChangePassword: boolean;
+  /** Identifiant du compte sur le drive (oCIS) ; absent = identique à `identifier`. */
+  driveLogin?: string;
+  /** État de la dernière synchronisation avec le drive (aucun secret). */
+  driveSync?: DriveSyncState;
   rights: Rights;
   createdAt: string;
   updatedAt: string;
 };
 
 /** Vue sans empreinte, destinée aux réponses API. */
-export type PublicUser = Omit<HubUser, "passwordHash" | "passwordVersion">;
+export type PublicUser = Omit<HubUser, "passwordHash" | "passwordVersion" | "driveLogin"> & { driveLogin: string };
 
 export type Actor = { actor: string; ip?: string };
 
@@ -52,10 +62,25 @@ export function normalizeIdentifier(raw: string): string {
 
 const IDENTIFIER_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
+/** Identifiant du compte drive : celui du hub par défaut. */
+export const driveLoginOf = (u: Pick<HubUser, "identifier" | "driveLogin">) => u.driveLogin || u.identifier;
+
+/** Valide un identifiant drive (même forme que l'identifiant du hub, point et souligné admis). */
+export function parseDriveLogin(raw: unknown, fallback: string): string {
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const v = typeof raw === "string" ? normalizeIdentifier(raw) : "";
+  if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(v)) {
+    throw new AppError("validation_failed", "Identifiant du drive invalide.", {
+      fields: { driveLogin: "Lettres, chiffres, tiret, point ou souligné." },
+    });
+  }
+  return v;
+}
+
 export function toPublic(u: HubUser): PublicUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { passwordHash, passwordVersion, ...rest } = u;
-  return { ...rest, rights: effectiveRights(u) };
+  return { ...rest, driveLogin: driveLoginOf(u), rights: effectiveRights(u) };
 }
 
 export function effectiveRights(u: Pick<HubUser, "role" | "rights">): Rights {
@@ -102,15 +127,22 @@ export function validateNewPassword(pw: unknown): string {
   return pw;
 }
 
-/** Mot de passe provisoire lisible : 3 groupes de 4, sans caractères ambigus. */
-export function generateTemporaryPassword(): string {
+/** Mot de passe lisible : 3 groupes de 4, sans caractères ambigus. */
+export function generatePassword(): string {
   const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
   const group = () => Array.from({ length: 4 }, () => alphabet[randomInt(alphabet.length)]).join("");
   return `${group()}-${group()}-${group()}`;
 }
 
+/** Lit les comptes ; l'ancien champ `mustChangePassword` (supprimé) est ignoré s'il traîne dans le fichier. */
 export async function listUsers(): Promise<HubUser[]> {
-  return readJson<HubUser[]>(usersFile(), []);
+  const list = await readJson<(HubUser & { mustChangePassword?: unknown })[]>(usersFile(), []);
+  return list.map((u) => {
+    if (!("mustChangePassword" in u)) return u;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { mustChangePassword, ...rest } = u;
+    return rest;
+  });
 }
 
 export async function getUserById(id: string): Promise<HubUser | null> {
@@ -137,18 +169,17 @@ export type CreateUserInput = {
   displayName: string;
   role?: HubRole;
   rights?: unknown;
-  /** Mot de passe imposé (CLI du premier admin) ; sinon provisoire généré. */
+  /** Mot de passe saisi par l'administrateur ; sinon généré (renvoyé une seule fois). */
   password?: string;
+  /** Identifiant du compte drive (défaut : l'identifiant). */
+  driveLogin?: string;
+  driveSync?: DriveSyncState;
 };
 
-/**
- * Crée un compte. Sans `password`, génère un mot de passe provisoire (renvoyé
- * une seule fois) et force son changement à la première connexion.
- */
-export async function createUser(
-  input: CreateUserInput,
-  by: Actor,
-): Promise<{ user: PublicUser; temporaryPassword?: string }> {
+export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; rights: Rights; driveLogin?: string; password: string };
+
+/** Valide une création sans rien écrire (le mot de passe est généré s'il est absent). */
+export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
   const displayName = (input.displayName ?? "").trim();
   if (!displayName || displayName.length > 80) {
     throw new AppError("validation_failed", "Nom affiché invalide.", { fields: { displayName: "1 à 80 caractères." } });
@@ -164,33 +195,53 @@ export async function createUser(
     throw new AppError("validation_failed", "Rôle invalide.", { fields: { role: "admin ou membre." } });
   }
   const rights = parseRights(input.rights);
-  const temporaryPassword = input.password === undefined ? generateTemporaryPassword() : undefined;
-  const password = input.password === undefined ? temporaryPassword! : validateNewPassword(input.password);
-  const passwordHash = await hashPassword(password);
+  const login = parseDriveLogin(input.driveLogin, identifier);
+  const password = input.password === undefined ? generatePassword() : validateNewPassword(input.password);
+  return { identifier, displayName, role, rights, driveLogin: login === identifier ? undefined : login, password };
+}
+
+/** Échoue si l'identifiant existe déjà (vérification avant d'écrire sur le drive). */
+export async function assertIdentifierFree(identifier: string): Promise<void> {
+  if ((await listUsers()).some((u) => u.identifier === identifier)) {
+    throw new AppError("validation_failed", "Cet identifiant existe déjà.", { fields: { identifier: "Déjà utilisé." } });
+  }
+}
+
+/**
+ * Crée un compte. Le mot de passe est choisi par l'administrateur ou généré ; il est
+ * renvoyé (`password`) pour être affiché une seule fois, jamais journalisé.
+ */
+export async function createUser(
+  input: CreateUserInput,
+  by: Actor,
+): Promise<{ user: PublicUser; password: string }> {
+  const v = validateNewUser(input);
+  const passwordHash = await hashPassword(v.password);
   const now = new Date().toISOString();
   const user: HubUser = {
     id: randomBytes(12).toString("hex"),
-    identifier,
-    displayName,
-    role,
+    identifier: v.identifier,
+    displayName: v.displayName,
+    role: v.role,
     active: true,
     passwordHash,
     passwordVersion: 1,
-    mustChangePassword: temporaryPassword !== undefined,
-    rights,
+    ...(v.driveLogin ? { driveLogin: v.driveLogin } : {}),
+    ...(input.driveSync ? { driveSync: input.driveSync } : {}),
+    rights: v.rights,
     createdAt: now,
     updatedAt: now,
   };
   await updateJson<HubUser[]>(usersFile(), [], (list) => {
-    if (list.some((u) => u.identifier === identifier)) {
+    if (list.some((u) => u.identifier === v.identifier)) {
       throw new AppError("validation_failed", "Cet identifiant existe déjà.", {
         fields: { identifier: "Déjà utilisé." },
       });
     }
     return [...list, user];
   });
-  await audit({ ...by, action: "user.create", detail: `${identifier} (${role})` });
-  return { user: toPublic(user), temporaryPassword };
+  await audit({ ...by, action: "user.create", detail: `${v.identifier} (${v.role})` });
+  return { user: toPublic(user), password: v.password };
 }
 
 async function mutate(
@@ -204,7 +255,10 @@ async function mutate(
   await updateJson<HubUser[]>(usersFile(), [], (list) => {
     const i = list.findIndex((u) => u.id === id);
     if (i < 0) throw notFound();
-    const next = { ...fn(list[i], list), updatedAt: new Date().toISOString() };
+    // L'ancien champ `mustChangePassword` (supprimé) disparaît à la première écriture du compte.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { mustChangePassword: _legacy, ...current } = list[i] as HubUser & { mustChangePassword?: unknown };
+    const next = { ...fn(current, list), updatedAt: new Date().toISOString() };
     result = next;
     return list.map((u, j) => (j === i ? next : u));
   });
@@ -227,21 +281,46 @@ export async function setActive(id: string, active: boolean, by: Actor): Promise
   return toPublic(u);
 }
 
-/** Réinitialise : nouveau mot de passe provisoire (renvoyé une seule fois). */
-export async function resetPassword(
+/** Pose un mot de passe attribué par l'administrateur (les sessions de la personne tombent). */
+export async function setPassword(
   id: string,
+  password: string,
   by: Actor,
-): Promise<{ user: PublicUser; temporaryPassword: string }> {
-  const temporaryPassword = generateTemporaryPassword();
-  const passwordHash = await hashPassword(temporaryPassword);
+): Promise<PublicUser> {
+  const passwordHash = await hashPassword(validateNewPassword(password));
   const u = await mutate(
     id,
     by,
     "user.reset-password",
-    (u) => ({ ...u, passwordHash, passwordVersion: u.passwordVersion + 1, mustChangePassword: true }),
+    (u) => ({ ...u, passwordHash, passwordVersion: u.passwordVersion + 1 }),
     (u) => u.identifier,
   );
-  return { user: toPublic(u), temporaryPassword };
+  return toPublic(u);
+}
+
+/** Identifiant drive et/ou état de synchronisation (aucun secret). */
+export async function setDriveState(
+  id: string,
+  patch: { driveLogin?: string; driveSync?: DriveSyncState },
+  by: Actor,
+  action = "user.drive-sync",
+): Promise<PublicUser> {
+  const u = await mutate(
+    id,
+    by,
+    action,
+    (u) => {
+      const next: HubUser = { ...u };
+      if (patch.driveLogin !== undefined) {
+        if (patch.driveLogin === u.identifier) delete next.driveLogin;
+        else next.driveLogin = patch.driveLogin;
+      }
+      if (patch.driveSync !== undefined) next.driveSync = patch.driveSync;
+      return next;
+    },
+    (u) => `${u.identifier} drive=${driveLoginOf(u)}${u.driveSync?.error ? " erreur" : ""}`,
+  );
+  return toPublic(u);
 }
 
 /** Change rôle et/ou droits. */
@@ -271,17 +350,3 @@ export async function updateRoleAndRights(
   );
   return toPublic(u);
 }
-
-/** Changement par l'intéressé : l'ancien mot de passe a déjà été vérifié. */
-export async function setOwnPassword(id: string, newPassword: string, by: Actor): Promise<HubUser> {
-  const pw = validateNewPassword(newPassword);
-  const passwordHash = await hashPassword(pw);
-  return mutate(
-    id,
-    by,
-    "user.change-password",
-    (u) => ({ ...u, passwordHash, passwordVersion: u.passwordVersion + 1, mustChangePassword: false }),
-    (u) => u.identifier,
-  );
-}
-

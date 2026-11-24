@@ -2,7 +2,7 @@ import { call } from "@/components/bureau/api";
 
 export { ApiError } from "@/components/bureau/api";
 
-export type HubSession = { authenticated: true; mustChangePassword: boolean };
+export type HubSession = { authenticated: true };
 
 const json = (body: unknown): RequestInit => ({
   method: "POST",
@@ -13,8 +13,6 @@ const json = (body: unknown): RequestInit => ({
 export const hubLogin = (identifier: string, password: string) =>
   call<HubSession>("/api/hub/login", json({ identifier, password }));
 export const hubLogout = () => call<{ ok: true }>("/api/hub/logout", { method: "POST" });
-export const hubChangePassword = (oldPassword: string, newPassword: string) =>
-  call<HubSession>("/api/hub/password", json({ oldPassword, newPassword }));
 
 /** Message lisible pour une limitation de tentatives. */
 export function waitMessage(retryAfter?: number): string {

@@ -26,8 +26,8 @@ export function LoginForm() {
     }
     setBusy(true);
     try {
-      const s = await hubLogin(identifier, password);
-      router.replace(s.mustChangePassword ? "/espace-bureau/nouveau-mot-de-passe" : "/espace-bureau");
+      await hubLogin(identifier, password);
+      router.replace("/espace-bureau");
       router.refresh();
     } catch (e) {
       const err = e as ApiError;
