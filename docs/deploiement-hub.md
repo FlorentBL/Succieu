@@ -4,7 +4,7 @@ Ce document prépare la bascule de `suivi.succieu.fr` (service `suivi-bureau`) e
 
 Repères du serveur (à vérifier avant de commencer) : code `/var/www/succieu-web`, service `succieu-next`, environnement `/etc/succieu-web/succieu-next.env`, données du hub `/var/lib/succieu-web` (propriétaire `loic`), anciennes données `/var/lib/suivi-bureau` et `/root/mairie-reservations/data`, nginx en frontal.
 
-> **Attention : `.github/workflows/deploy.yml` déploie à chaque push sur `main`** (git pull, `npm ci`, build, redémarrage de `succieu-next`, sans sauvegarde ni migration). Ne pas pousser sur `main` avant d'avoir franchi l'étape 6, ou désactiver temporairement le workflow (Actions → Disable workflow) ; ne le réactiver qu'après la bascule. Le build « à côté » ci-dessous ne passe pas par lui.
+> **Attention : depuis le 24/11/2026, pousser sur `main` ne déploie plus rien.** La mise en ligne passe uniquement par le workflow manuel « Deploy to OVH » (`gh workflow run deploy.yml -R FlorentBL/Succieu -f ref=<branche|SHA>`, voir `docs/deploiement.md`), qui lance `deploy/deploy-site.sh` (build à côté, échange de dossiers, contrôle de 3 pages, retour arrière automatique). Ce workflow ne sauvegarde ni ne migre les données : ne le lancer pour le hub qu'après l'étape 6 de cette procédure et avec l'accord explicite de Florent. Le build « à côté » ci-dessous ne passe pas par lui.
 
 ## À fournir avant la bascule (par Florent)
 
