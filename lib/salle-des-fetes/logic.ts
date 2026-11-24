@@ -365,7 +365,7 @@ export function makeCsv(items: readonly (Reservation | ReservationLite)[]): stri
 }
 
 export function icsEscape(v: unknown): string {
-  return String(v ?? "").replaceAll("\\", "\\\\").replaceAll(";", "\;").replaceAll(",", "\\,").replace(/\r?\n/g, "\\n");
+  return String(v ?? "").replaceAll("\\", "\\\\").replaceAll(";", "\\;").replaceAll(",", "\\,").replace(/\r?\n/g, "\\n");
 }
 
 function foldIcsLine(line: string): string[] {

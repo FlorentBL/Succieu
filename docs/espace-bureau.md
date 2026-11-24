@@ -1,6 +1,23 @@
-# Espace bureau — contrat technique
+# Espace bureau — hub et contrat technique
 
-Le bureau municipal soumet des actualités (carrousel d'accueil) et des rendez-vous (agenda). Un agent Timon relit chaque saisie (avis + version corrigée), puis Florent (admin) publie ou rejette. Ce document fixe le contrat utilisé par les volets interface, relecture agent et pages publiques. Seuls `lib/`, `app/api/`, `scripts/` et la doc sont fournis ici : aucune page d'interface.
+## Vue d'ensemble du hub
+
+`/espace-bureau` est un **hub à comptes individuels** (administration des comptes à `/espace-bureau/administration`, `/espace-bureau/admin` redirige). Une même connexion (`/espace-bureau/connexion`, cookie `succieu_hub`) donne accès aux modules autorisés, dans le groupe de pages `app/espace-bureau/(hub)/`. Tout le hub est en `noindex`, hors sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`).
+
+| Module (`id`) | Page | Contenu | Doc |
+|---|---|---|---|
+| `actus-agenda` | `/espace-bureau/actualites` (+ `/moderation`, admin seulement) | Saisie des actualités et de l'agenda, relecture par l'agent, modération | ci-dessous |
+| `espace-bureau` | `/espace-bureau/bureau` | Suivi des dossiers du bureau (porté de suivi.succieu.fr) | « Module Espace Bureau » |
+| `salle-des-fetes` | `/espace-bureau/salle-des-fetes` | Réservations, conflits, exports, journal (porté de sdf.succieu.fr) | « Module Salle des fêtes » |
+| `documents` | `/espace-bureau/documents` | Lien vers le drive (`BUREAU_DRIVE_URL`) | `lib/hub/drive.ts` |
+
+**Droits** : rôle `admin` (tout en écriture, administration des comptes, modération) ou `membre` avec un niveau par module : `none` (invisible), `read`, `write`. Un compte créé ou réinitialisé reçoit un mot de passe provisoire (`xxxx-xxxx-xxxx`, affiché une seule fois) qu'il doit changer à la première connexion ; le dernier administrateur actif ne peut être ni désactivé ni rétrogradé. **Variables** : voir la section suivante. **Premier administrateur** : `scripts/hub-create-admin.mjs`. **Migration** depuis les anciennes applications : `scripts/hub-migrate.mjs` (`--dry-run` par défaut, `--apply` explicite : comptes depuis une liste hors dépôt + fiche imprimable 0600, import du suivi, import de la salle des fêtes ; idempotent). **Déploiement et retour arrière** : `docs/deploiement-hub.md` ; redirections `deploy/nginx/`.
+
+Tests : `npm test` (dont `lib/hub/parcours.test.ts` : admin crée un compte, connexion avec le provisoire, changement forcé, droits par module, reset, migration) et `node scripts/e2e-hub.mjs` (mêmes parcours sur les vraies routes HTTP après `next build`).
+
+---
+
+Le bureau municipal soumet des actualités (carrousel d'accueil) et des rendez-vous (agenda). Un agent Timon relit chaque saisie (avis + version corrigée), puis Florent (admin) publie ou rejette. Le reste de ce document fixe le contrat technique utilisé par les volets interface, relecture agent et pages publiques.
 
 ## Variables d'environnement
 
@@ -11,10 +28,11 @@ Voir `.env.example`. Aucun secret dans le dépôt.
 | `DATA_DIR` | Dossier des données hors build. Défaut `./data` (dev, ignoré par git) ; prod `/var/lib/succieu-web` (propriétaire `loic`). |
 | `SESSION_SECRET` | Clé HMAC des sessions, 32 caractères minimum. |
 | `REVIEW_API_TOKEN` | Jeton Bearer de l'agent de relecture, 24 caractères minimum. |
+| `BUREAU_DRIVE_URL` | Facultatif : adresse https du drive (module Documents) ; défaut `https://drive.succieu.fr/`. |
 | `HUB_SESSION_HOURS` | Facultatif : durée de la session du hub en heures (défaut 2160 = 90 jours). |
 | `SITE_ORIGINS` | Facultatif : origines supplémentaires acceptées pour les écritures (séparées par des virgules). |
 
-Les anciennes variables `BUREAU_PASSWORD_HASH` et `ADMIN_PASSWORD_HASH` (mots de passe communs) sont **supprimées** : la connexion passe par les comptes individuels du hub. Elles peuvent être retirées de l'environnement du service. Empreinte scrypt (utilitaire) : `node scripts/hash-password.mjs` (saisie masquée, ou mot de passe sur l'entrée standard). Format : `scrypt$N$r$p$sel(base64)$empreinte(base64)`. Les `$` doivent être échappés dans un `.env` lu par Next (`\$`) ou la valeur mise entre apostrophes dans un `EnvironmentFile` systemd. Une variable de session ou de relecture manquante renvoie `server_misconfigured`.
+Les anciennes variables `BUREAU_PASSWORD_HASH` et `ADMIN_PASSWORD_HASH` (mots de passe communs) sont **supprimées** : la connexion passe par les comptes individuels du hub. Elles peuvent être retirées de l'environnement du service. Empreinte scrypt (utilitaire de diagnostic, hors fonctionnement du hub) : `node scripts/hash-password.mjs` (saisie masquée, ou mot de passe sur l'entrée standard). Format : `scrypt$N$r$p$sel(base64)$empreinte(base64)`. Les `$` doivent être échappés dans un `.env` lu par Next (`\$`) ou la valeur mise entre apostrophes dans un `EnvironmentFile` systemd. Une variable de session ou de relecture manquante renvoie `server_misconfigured`.
 
 ## Stockage (`DATA_DIR`)
 
@@ -200,10 +218,10 @@ DATA_DIR=/var/lib/succieu-web node scripts/import-suivi-bureau.mjs <bureau.json>
 - Le rapport (`--dry-run` ou réel) donne : dossiers (source, importés, déjà présents), nouvelles, commissions ajoutées, élus rapprochés (méthode), référents non rapprochés avec nombre de dossiers. Il ne liste aucun titre ni texte.
 - **Idempotent** : clé = id du dossier (ou `importKey`). Un dossier déjà présent n'est jamais écrasé (les modifications faites dans le hub sont conservées). Seul rattrapage : un référent resté sans compte est rattaché si son compte existe au nouveau passage (rien d'autre n'est modifié). Dates, `revision`, identifiants et historique des nouvelles sont conservés tels quels ; les listes (commissions…) sont fusionnées.
 - Ordre conseillé : créer les comptes des élus dans l'administration, `--dry-run`, compléter `--map`, import réel, relire le rapport.
-- Non repris : l'import Excel de l'ancienne appli (les données sont déjà en JSON), l'ancien `audit.jsonl` (à archiver à part) et les codes des élus (remplacés par les comptes).
+- Non repris : l'import Excel de l'ancienne appli (les données sont déjà en JSON), l'ancien `audit.jsonl` (à archiver hors site : `docs/deploiement-hub.md`, étape 5) et les codes des élus (remplacés par les comptes).
 - Aucune donnée réelle dans le dépôt : les tests utilisent des fixtures fictives.
 
-**Écarts avec l'ancienne appli** : plus de page « Qui êtes-vous ? » ni de codes (comptes du hub) ; pas de gestion des élus (c'est l'administration des comptes) ; navigation par onglets du hub au lieu de la barre fixe mobile ; taille du texte = celle du hub ; filtres dans un `<details>` sans envoi automatique ; pas d'écran pour les listes (API conservée) ; aucun test e2e navigateur (aucun playwright-core installé). Non déployé.
+**Écarts avec l'ancienne appli** : plus de page « Qui êtes-vous ? » ni de codes (comptes du hub) ; pas de gestion des élus (c'est l'administration des comptes) ; navigation par onglets du hub au lieu de la barre fixe mobile ; taille du texte = celle du hub ; filtres dans un `<details>` sans envoi automatique ; pas d'écran pour les listes (API conservée) ; parcours HTTP couvert par `scripts/e2e-hub.mjs`. Non déployé.
 
 ## Routes
 
@@ -247,7 +265,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 ## Tests
 
-`npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou ; salle des fêtes (`lib/salle-des-fetes/salle.test.ts`) : conflits, annulation/restauration, révision, lecture sans données personnelles, exports, projection publique, import idempotent ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
+`npm test` (node:test via `scripts/ts-resolve.mjs`) : parcours complet du hub et migration (`lib/hub/parcours.test.ts`) ; validation, transitions, sessions, empreintes, écriture atomique et verrou ; salle des fêtes (`lib/salle-des-fetes/salle.test.ts`) : conflits, annulation/restauration, révision, lecture sans données personnelles, exports, projection publique, import idempotent ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
 
 ## Pages publiques
 
