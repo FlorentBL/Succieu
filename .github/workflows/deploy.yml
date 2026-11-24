@@ -1,25 +1,54 @@
 name: Deploy to OVH
 
+# Déclenchement manuel uniquement : pousser sur main ne publie rien.
+# Voir docs/deploiement.md.
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branche ou SHA à déployer"
+        required: false
+        default: main
+        type: string
+
+concurrency:
+  group: deploy-succieu
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
+      - name: Récupérer le script de déploiement de la révision demandée
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+
+      - name: Encoder le script
+        id: script
+        env:
+          REF: ${{ inputs.ref || 'main' }}
+        run: |
+          case "$REF" in *[!A-Za-z0-9._/-]*|-*) echo "Référence invalide"; exit 1;; esac
+          echo "b64=$(base64 -w0 deploy/deploy-site.sh)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_REF: ${{ inputs.ref || 'main' }}
+          DEPLOY_SCRIPT_B64: ${{ steps.script.outputs.b64 }}
         with:
           host: 94.23.12.75
           port: 222
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DEPLOY_REF,DEPLOY_SCRIPT_B64
+          script_stop: true
           script: |
-            cd /var/www/succieu-web
-            git pull origin main
-            npm ci
-            npm run build
-            systemctl restart succieu-next
+            f=$(mktemp /tmp/deploy-site.XXXXXX)
+            trap 'rm -f "$f"' EXIT
+            printf '%s' "$DEPLOY_SCRIPT_B64" | base64 -d > "$f"
+            bash "$f" --ref "$DEPLOY_REF"
