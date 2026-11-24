@@ -5,30 +5,36 @@
 export const HUB_MODULES = [
   {
     id: "actus-agenda",
+    icon: "news",
     label: "Actualités & agenda",
     path: "/espace-bureau/actualites",
     description: "Saisie des actualités et des rendez-vous de l'agenda.",
   },
   {
     id: "espace-bureau",
+    icon: "people",
     label: "Espace Bureau",
     path: "/espace-bureau/bureau",
     description: "Suivi du bureau municipal.",
   },
   {
     id: "salle-des-fetes",
+    icon: "room",
     label: "Salle des fêtes",
     path: "/espace-bureau/salle-des-fetes",
     description: "Réservations et gestion de la salle des fêtes.",
   },
   {
     id: "documents",
+    icon: "documents",
     label: "Documents",
     path: "/espace-bureau/documents",
     description: "Documents partagés du conseil.",
   },
 ] as const;
 
+export type HubModule = (typeof HUB_MODULES)[number];
+export type ModuleIcon = HubModule["icon"];
 export type ModuleId = (typeof HUB_MODULES)[number]["id"];
 export const MODULE_IDS: readonly ModuleId[] = HUB_MODULES.map((m) => m.id);
 

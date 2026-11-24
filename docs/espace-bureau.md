@@ -70,6 +70,34 @@ Le hub `/espace-bureau` remplace à terme les mots de passe communs ci-dessus (q
 
 **Premier admin** (sur le serveur, saisie masquée) : `DATA_DIR=/var/lib/succieu-web node scripts/hub-create-admin.mjs <prenom> ["Nom affiché"]`.
 
+## Coquille du hub (`/espace-bureau`)
+
+Pages, toutes `noindex` (layout `app/espace-bureau/layout.tsx`), hors sitemap, `Disallow /espace-bureau` dans `robots.txt` :
+
+| Chemin | Fichier | Rôle |
+|---|---|---|
+| `/espace-bureau/connexion` | `connexion/page.tsx` | Identifiant + mot de passe ; message dédié si limité (429), identifiant/mot de passe faux, serveur non configuré. Déjà connecté : redirigé. |
+| `/espace-bureau/nouveau-mot-de-passe` | `nouveau-mot-de-passe/page.tsx` | Écran imposé tant que `mustChangePassword` ; toute autre page du hub y redirige. |
+| `/espace-bureau` | `(hub)/page.tsx` | Accueil : une tuile par module autorisé (icône, titre, description, résumé facultatif, « Lecture seule »). |
+| `/espace-bureau/compte` | `(hub)/compte/page.tsx` | Changer son mot de passe, taille du texte, se déconnecter. |
+| `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; **emplacement** (la gestion des comptes reste à brancher sur `lib/hub/users.ts`). |
+| `/espace-bureau/<chemin du module>` | `(hub)/[module]/page.tsx` | Emplacement provisoire des modules sans page propre. |
+| `/espace-bureau/actualites` | `actualites/page.tsx` | Ancienne interface des actus (mots de passe communs), **déplacée telle quelle** ; le volet 4 la migre. Hors du groupe `(hub)`, donc sans la coquille. |
+| `/espace-bureau/moderation` | `moderation/` | Inchangé (session admin historique), hors coquille. |
+
+Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exige une session (`requireHubPageUser` : sinon redirection vers la connexion ou vers le changement de mot de passe), puis affiche `HubNav` (`components/hub/HubNav.tsx`) : Accueil, modules autorisés (niveau ≥ lecture, ordre du registre), Administration (admin), Mon compte, taille du texte. Sur un module en lecture seule, un bandeau jaune « Lecture seule » s'affiche. Le layout ne protège pas les données : chaque page de module appelle sa propre garde.
+
+**Charte** : aucun nouveau thème. Les pages reprennent `PageHero` (variante `slim`), `PageShell`, `Card`, les champs et boutons de `components/bureau/fields.tsx` (cibles ≥ 44 px, anneau de focus `--color-focus`), les polices Bricolage/Source Sans et les jetons de `app/globals.css`. L'en-tête et le pied du site public restent visibles au-dessus et en dessous.
+
+**Taille du texte** : Petit / Normal / Grand (93,75 % / 100 % / 118,75 %), mémorisée dans `localStorage` (`succieu-hub-taille`) et appliquée à `<html>` (tout est en rem) par un script inline avant l'affichage (`components/hub/sizeStore.ts`, `TextSize.tsx`) ; rendue au site public en quittant l'espace.
+
+### Ajouter un module
+
+1. Ajouter l'entrée dans `HUB_MODULES` (`lib/hub/modules.ts`) : `id`, `icon` (`news`, `people`, `room`, `documents` ; en ajouter une dans `components/hub/ModuleIcon.tsx` si besoin), `label`, `path` (`/espace-bureau/<segment>`), `description`. La navigation, les tuiles, les droits (`rights`, console admin) et `allowedModules` en dérivent.
+2. Créer la page `app/espace-bureau/(hub)/<segment>/page.tsx` (elle prend le pas sur `[module]`) et appeler en tête `const { user, level } = await requireModulePage("<id>")` (`lib/hub/page-guards.ts`) : 404 si inconnu, redirection si non autorisé, `level` = `read` ou `write` pour masquer les actions d'écriture.
+3. Routes API du module : `requireModule("<id>", "read" | "write", req)` (`lib/hub/guards.ts`) ; ne jamais se fier à la seule page.
+4. Résumé de tuile (compteur) facultatif : enregistrer une fonction `(user) => Promise<string | null>` dans `MODULE_SUMMARIES` (`lib/hub/summaries.ts`) ; une erreur ou `null` masque l'emplacement.
+
 ## Routes
 
 Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code", "message", "fields?" } }`. Toutes les réponses JSON sont `Cache-Control: no-store`.
@@ -123,7 +151,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 `/` (carrousel : 4 dernières actualités, complétées par `lib/homeSpotlight.ts` ; bande « Prochains rendez-vous »), `/actualites`, `/actualites/<id>`, `/agenda`, `/agenda/passes`. Logique dans `lib/publicContent.ts` (le marché du samedi matin, sans heure, est inséré à son prochain samedi, heure de Paris, jusqu'à 13 h). Pages en `revalidate = 60` en repli de `revalidatePath` ; le sitemap inclut les actualités publiées.
 
-## Interface (`/espace-bureau`)
+## Ancienne interface des actualités (`/espace-bureau/actualites`)
 
 Page client unique (`components/bureau/`) : connexion (nom + mot de passe commun), onglets « Actualités » / « Rendez-vous », historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie). Page `noindex`, absente du sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`). La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi.
 
