@@ -29,7 +29,7 @@ export const HUB_MODULES = [
     icon: "documents",
     label: "Documents",
     path: "/espace-bureau/documents",
-    description: "Documents partagés du conseil.",
+    description: "Accès au drive des documents partagés.",
   },
 ] as const;
 
