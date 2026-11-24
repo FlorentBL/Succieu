@@ -9,6 +9,7 @@ export type ErrorCode =
   | "invalid_transition"
   | "unsupported_media"
   | "payload_too_large"
+  | "password_change_required"
   | "server_misconfigured";
 
 // "server_error" (500) est renvoyé pour toute erreur non prévue.
@@ -24,6 +25,7 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   invalid_transition: 409,
   unsupported_media: 415,
   payload_too_large: 413,
+  password_change_required: 403,
   server_misconfigured: 500,
 };
 

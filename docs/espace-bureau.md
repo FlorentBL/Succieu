@@ -13,6 +13,7 @@ Voir `.env.example`. Aucun secret dans le dépôt.
 | `ADMIN_PASSWORD_HASH` | Empreinte scrypt du mot de passe admin (Florent). |
 | `SESSION_SECRET` | Clé HMAC des sessions, 32 caractères minimum. |
 | `REVIEW_API_TOKEN` | Jeton Bearer de l'agent de relecture, 24 caractères minimum. |
+| `HUB_SESSION_HOURS` | Facultatif : durée de la session du hub en heures (défaut 2160 = 90 jours). |
 | `SITE_ORIGINS` | Facultatif : origines supplémentaires acceptées pour les écritures (séparées par des virgules). |
 
 Générer une empreinte : `node scripts/hash-password.mjs` (saisie masquée, ou mot de passe sur l'entrée standard). Format : `scrypt$N$r$p$sel(base64)$empreinte(base64)`. Les `$` doivent être échappés dans un `.env` lu par Next (`\$`) ou la valeur mise entre apostrophes dans un `EnvironmentFile` systemd. Une variable manquante renvoie `server_misconfigured`.
@@ -44,6 +45,30 @@ Fonctions serveur réutilisables (`lib/content/store.ts`) : `getPublishedArticle
 - Cookies `succieu_bureau` / `succieu_admin` : jeton `base64url(JSON).HMAC-SHA256`, httpOnly, `Secure` en production, `SameSite=Strict`, 8 h.
 - Toute requête qui écrit (POST) doit porter `Origin` (ou `Referer`) identique à l'hôte du site (`Host`/`X-Forwarded-Host`) ou listé dans `SITE_ORIGINS`, sinon `bad_origin`. Les routes de relecture agent (Bearer) n'utilisent pas de cookie et sont exemptées.
 - Connexion : 5 échecs / 15 min par IP (en mémoire, par processus) puis `rate_limited` avec `Retry-After`.
+
+## Authentification du hub (comptes individuels)
+
+Le hub `/espace-bureau` remplace à terme les mots de passe communs ci-dessus (qui restent en place tant que le volet 4 ne les a pas remplacés). Code : `lib/hub/`.
+
+- **Comptes** : `DATA_DIR/users.json` (écriture atomique + verrou). Champs : `id` stable, `identifier` (prénom en minuscules sans accent, unique ; la saisie à la connexion est normalisée), `displayName`, `role` (`admin` | `membre`), `active`, `passwordHash` (scrypt, `lib/auth/password.ts`), `passwordVersion`, `mustChangePassword`, `rights`, `createdAt`, `updatedAt`.
+- **Droits** : `{ "actus-agenda" | "espace-bureau" | "salle-des-fetes" | "documents": "none" | "read" | "write" }` ; un module absent vaut `none` ; un admin a `write` partout. Registre des modules (id, libellé, chemin, description) : `lib/hub/modules.ts`, unique endroit à compléter par les volets suivants.
+- **Session** : cookie `succieu_hub`, jeton `base64url({uid, pv, exp}).HMAC-SHA256` (`SESSION_SECRET`), httpOnly, `Secure` en production, **`SameSite=Lax`** (Strict casse l'ouverture depuis un lien WhatsApp : le cookie n'est pas envoyé au rechargement), durée `HUB_SESSION_HOURS` (90 jours par défaut). Invalidée si le compte est désactivé ou si le mot de passe change (`pv` ≠ `passwordVersion`).
+- **Mot de passe provisoire** : création et réinitialisation génèrent `xxxx-xxxx-xxxx`, renvoyé une seule fois, avec `mustChangePassword`. Tant qu'il est vrai, toute garde refuse avec 403 `password_change_required` ; seuls `session`, `password` et `logout` répondent.
+- **Limitation** : 5 échecs / 15 min par IP **et** par identifiant (mémoire du processus), puis 429 `rate_limited` + `Retry-After`. Un identifiant verrouillé l'est même avec le bon mot de passe.
+- **Audit** : `DATA_DIR/hub-audit.jsonl`, une ligne JSON `{date, actor, action, detail?, ip?}` (connexions, échecs, créations, droits, réinitialisations) ; jamais de mot de passe ni d'empreinte.
+
+| Méthode et chemin | Accès | Description |
+|---|---|---|
+| `POST /api/hub/login` | public + origine | `{ identifier, password }` → session (`authenticated`, `user`, `role`, `rights`, `mustChangePassword`) + cookie. 401 générique si identifiant inconnu, mot de passe faux ou compte désactivé. |
+| `POST /api/hub/logout` | origine | Efface le cookie. |
+| `GET /api/hub/session` | connecté | Même corps que la connexion ; 401 sans session. |
+| `POST /api/hub/password` | connecté + origine | `{ oldPassword, newPassword }` (10 caractères min., différent de l'ancien) ; renvoie la session et un nouveau cookie (les autres sessions tombent). |
+
+**Gardes serveur** (`lib/hub/guards.ts`, logique pure testable dans `lib/hub/access.ts`) : `requireUser({ allowPasswordChange? })`, `requireAdmin()`, `requireModule(module, "read" | "write", req?)` — avec `req`, une écriture exige aussi l'origine (`assertSameOrigin`). Erreurs : 401 `unauthorized`, 403 `forbidden`, 403 `password_change_required`.
+
+**Bibliothèque admin** (`lib/hub/users.ts`, utilisée par le volet 2) : `createUser`, `setActive`, `resetPassword`, `updateRoleAndRights`, `listUsers`, `toPublic`. Impossible de désactiver ou rétrograder le dernier admin actif (409 `invalid_transition`).
+
+**Premier admin** (sur le serveur, saisie masquée) : `DATA_DIR=/var/lib/succieu-web node scripts/hub-create-admin.mjs <prenom> ["Nom affiché"]`.
 
 ## Routes
 
@@ -85,13 +110,14 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | `payload_too_large` | 413 | Image > 40 Mo. |
 | `unsupported_media` | 415 | Image non jpeg/png/webp. |
 | `validation_failed` | 422 | Champs invalides : `error.fields` = `{ champ: message lisible }` (avis : `corrected.<champ>`). |
+| `password_change_required` | 403 | Hub : mot de passe provisoire à changer avant toute autre action. |
 | `rate_limited` | 429 | Trop de tentatives de connexion (`Retry-After`). |
 | `server_misconfigured` | 500 | Variable d'environnement manquante ou trop courte. |
 | `server_error` | 500 | Erreur imprévue. |
 
 ## Tests
 
-`npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou.
+`npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
 
 ## Pages publiques
 
