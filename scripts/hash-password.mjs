@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// Génère une empreinte scrypt pour BUREAU_PASSWORD_HASH / ADMIN_PASSWORD_HASH.
+// Génère une empreinte scrypt (outil de diagnostic) : le hub stocke ses empreintes dans
+// DATA_DIR/users.json, créées par scripts/hub-create-admin.mjs ou la console d'administration.
+// Les variables BUREAU_PASSWORD_HASH / ADMIN_PASSWORD_HASH n'existent plus.
 // Usage : node scripts/hash-password.mjs            (saisie masquée)
 //         printf '%s' 'mot de passe' | node scripts/hash-password.mjs
 // Format : scrypt$N$r$p$sel(base64)$empreinte(base64) — voir lib/auth/password.ts

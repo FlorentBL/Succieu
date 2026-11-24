@@ -10,6 +10,7 @@ import {
   buildDashboard,
   csvCell,
   filterReservations,
+  icsEscape,
   makeCsv,
   makeICalendar,
   normalizeStatus,
@@ -138,7 +139,8 @@ test("exports : CSV protégé contre l'injection de formule, ICS valide", () => 
   assert.match(makeCsv([r]), /"'=CMD\(\)"/);
   const ics = makeICalendar([r]);
   assert.match(ics, /DTEND;VALUE=DATE:20300201/);
-  assert.match(ics, /SUMMARY:Fête\; test\\, ok/);
+  assert.match(ics, /SUMMARY:Fête\\; test\\, ok/);
+  assert.equal(icsEscape("a;b,c\\d\ne"), "a\\;b\\,c\\\\d\\ne");
   assert.match(ics, /STATUS:CONFIRMED/);
   assert.ok(ics.includes("Statut: confirmee\\nRéférence: R1"));
   assert.ok(ics.split("\r\n").every((l) => Buffer.byteLength(l) <= 75));
