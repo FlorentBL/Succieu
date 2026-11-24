@@ -70,6 +70,23 @@ Le hub `/espace-bureau` remplace à terme les mots de passe communs ci-dessus (q
 
 **Premier admin** (sur le serveur, saisie masquée) : `DATA_DIR=/var/lib/succieu-web node scripts/hub-create-admin.mjs <prenom> ["Nom affiché"]`.
 
+## Console d'administration des comptes (`/espace-bureau/admin`)
+
+Page `noindex` (sous `/espace-bureau`, donc hors sitemap et `Disallow` dans `robots.txt`), client, réservée au rôle `admin` du hub : connexion sur place avec le compte individuel ; un membre voit « Accès réservé » (403). Fonctions : liste des comptes (nom, identifiant, rôle, actif, dernière connexion tirée du journal), création (identifiant proposé = prénom sans accent, modifiable), grille de droits Aucun / Lecture / Écriture à enregistrement explicite, réinitialisation du mot de passe, désactivation / réactivation, changement de rôle, journal filtrable par personne. Le mot de passe provisoire n'est affiché qu'une fois (copier / imprimer), jamais relu ni journalisé. Confirmation avant enregistrement des droits, réinitialisation et (dés)activation. Garde-fous : on ne peut ni se désactiver, ni changer son propre rôle, ni réinitialiser son propre mot de passe (409 `invalid_transition`) ; le dernier admin actif est protégé (bibliothèque `lib/hub/users.ts`).
+
+Logique : `lib/hub/admin.ts` (testée dans `lib/hub/admin.test.ts`) ; composants : `components/hub-admin/`. Toutes les routes exigent la session hub admin (401/403) et, en écriture, l'origine.
+
+| Méthode et chemin | Description |
+|---|---|
+| `GET /api/admin/users` | `{ users }` (vue publique + `lastLogin`, sans empreinte). |
+| `POST /api/admin/users` | `{ displayName, identifier?, role?, rights? }` → 201 `{ user, temporaryPassword }`. |
+| `PATCH /api/admin/users/<id>` | `{ role?, rights?, displayName? }` → `{ user }` ; journalisé (`user.update`). |
+| `POST /api/admin/users/<id>/active` | `{ active: boolean }` → `{ user }`. |
+| `POST /api/admin/users/<id>/reset-password` | → `{ user, temporaryPassword }` (une seule fois). |
+| `GET /api/admin/audit?person=&limit=` | `{ entries }` du journal `hub-audit.jsonl`, plus récentes d'abord (limite 500). |
+
+Les routes `/api/admin/login|logout|session|submissions*` restent celles de la modération (mot de passe admin commun).
+
 ## Routes
 
 Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code", "message", "fields?" } }`. Toutes les réponses JSON sont `Cache-Control: no-store`.
