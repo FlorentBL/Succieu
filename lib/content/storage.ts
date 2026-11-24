@@ -12,11 +12,11 @@ export function dataPath(...parts: string[]): string {
 }
 
 /** Écriture atomique : fichier temporaire dans le même dossier puis rename. */
-export async function writeFileAtomic(file: string, data: string | Buffer): Promise<void> {
+export async function writeFileAtomic(file: string, data: string | Buffer, mode = 0o640): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
   try {
-    const fh = await fs.open(tmp, "w", 0o640);
+    const fh = await fs.open(tmp, "w", mode);
     try {
       await fh.writeFile(data);
       await fh.sync();

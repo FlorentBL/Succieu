@@ -119,6 +119,38 @@ Page courte (`(hub)/documents/page.tsx`, garde `requireModulePage("documents")`,
 3. Routes API du module : `requireModule("<id>", "read" | "write", req)` (`lib/hub/guards.ts`) ; ne jamais se fier à la seule page.
 4. Résumé de tuile (compteur) facultatif : enregistrer une fonction `(user) => Promise<string | null>` dans `MODULE_SUMMARIES` (`lib/hub/summaries.ts`) ; une erreur ou `null` masque l'emplacement.
 
+## Module « Salle des fêtes » (`/espace-bureau/salle-des-fetes`)
+
+Porte l'application de réservation de `sdf.succieu.fr` dans le hub (module `salle-des-fetes`). Page dans le groupe `(hub)` (`requireModulePage`), aucune connexion propre : les comptes web-users.json de l'ancienne appli ne sont **pas** importés, ce sont les comptes du hub.
+
+**Droits** : `read` = calendrier, liste, détails, exports, **sans coordonnées ni paiements** (comme l'ancien rôle `viewer` : seuls `id`, `status`, `purpose`, `startDate`, `endDate`, `roomTypes` sortent du serveur ; la recherche texte est limitée à l'identifiant et à l'objet, pour ne pas révéler un nom ou un téléphone). `write` = tout (ancien `editor`) : création, modification, annulation/restauration, statut, tableau de bord, journal. Pas d'accès public.
+
+**Données** (`DATA_DIR/salle-des-fetes/`, fichiers 0600) : `reservations.json` (`{ reservations: [...] }`, écriture atomique, sérialisée par verrou) et `audit.jsonl` (un événement par ligne : `id`, `reservationId`, `action`, `actor` = nom affiché du compte, `at`, `before`, `after`). Code : `lib/salle-des-fetes/` (`logic.ts` pur et testé, `store.ts`, `import.ts`).
+
+**Modèle** : statuts `demande | option | confirmee | annulee` (anciennes valeurs `requested`, `confirmed`, `cancelled` acceptées et normalisées) ; `roomTypes` ⊂ `grande | petite` ; période `startDate`–`endDate` (≤ 31 jours, début non passé à la création) ; `keyHandover` `veille | matin` ; `depositPaid`, `balancePaid`, `balanceAtKeys` `oui | non` ; `revision` (anti-écrasement) ; `statusBeforeCancellation` ; `publicVisible` (défaut `false`) et `publicTitle` facultatif.
+
+**Conflits** : une réservation `demande`/`option`/`confirmee` bloque ses salles sur sa période ; chevauchement + salle commune = 409 `conflict` avec `error.details.conflicts[]` (id, statut, objet, nom, dates, salles, `conflictingRooms`, sans coordonnées ni paiements). Annulation réversible (`DELETE` ; reste visible via le filtre « Annulées »), restauration revalidée (409 si le créneau est repris). `revision` fournie et périmée = 409 `stale_revision`.
+
+| Méthode et chemin | Accès | Description |
+|---|---|---|
+| `GET /api/salle-des-fetes/reservations?month=AAAA-MM&q=&status=&room=` | lecture | `{ reservations, total }` (projetées selon le droit). `status` vide = actives, `all` = toutes. |
+| `POST /api/salle-des-fetes/reservations` | écriture + origine | Création, 201 `{ reservation }` ; 422 `fields`, 409 `conflict`. |
+| `GET /api/salle-des-fetes/reservations/<id>` | lecture | Détail (projeté). |
+| `PUT /api/salle-des-fetes/reservations/<id>` | écriture | Modification complète + `revision`. |
+| `DELETE /api/salle-des-fetes/reservations/<id>` | écriture | Annulation réversible. |
+| `PATCH /api/salle-des-fetes/reservations/<id>/status` | écriture | `{ status, revision? }`. |
+| `POST /api/salle-des-fetes/reservations/<id>/restore` | écriture | `{ status?, revision? }`. |
+| `GET /api/salle-des-fetes/dashboard` | lecture | Prochaines réservations, paiements à suivre (vide en lecture), remises de clés sous 30 jours. |
+| `GET /api/salle-des-fetes/audit?reservationId=&limit=` | écriture | Journal (500 max). |
+| `GET /api/salle-des-fetes/reservations/export.csv` / `export.ics` | lecture | Mêmes filtres ; CSV `;` avec BOM, cellules commençant par `= + - @` préfixées d'une apostrophe (injection de formule) ; iCalendar journées entières. |
+
+**Agenda public (préparation)** : `projectPublic()` (`lib/salle-des-fetes/logic.ts`) renvoie `{ id, title, startDate, endDate, rooms }` pour les seules réservations `confirmee` avec `publicVisible`, titre = `publicTitle` sinon `purpose`. **Non exposée** : aucune route ni page publique ; à brancher (et à ajouter à `robots`/sitemap au besoin) lors du volet public.
+
+**Interface** : calendrier lundi→dimanche (≥ 768 px) et liste du mois sur téléphone, recherche et filtres (mémorisés), tableau de bord (écriture), formulaire et détail en `<dialog>`, impression (l'en-tête, le pied et la navigation sont masqués), actualisation toutes les 30 s et au retour sur l'onglet (suspendue pendant qu'un formulaire est ouvert). Charte du site (jetons, `PageHero` slim, champs de `components/bureau/fields.tsx`).
+
+**Migration** (sur le serveur, après sauvegarde ; jamais lancée depuis le dépôt) :
+`DATA_DIR=/var/lib/succieu-web node scripts/import-salle-des-fetes.mjs <dossier data de l'ancienne appli> --dry-run` puis sans `--dry-run`. Lit `reservations.json` et `audit-log.json`, idempotent (un `id` déjà présent n'est jamais écrasé), rapport : lues / ajoutées / déjà présentes / ignorées, avertissement sur les chevauchements. Les réservations importées passent `publicVisible: false`.
+
 ## Routes
 
 Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code", "message", "fields?" } }`. Toutes les réponses JSON sont `Cache-Control: no-store`.
@@ -153,13 +185,15 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | `unsupported_media` | 415 | Image non jpeg/png/webp. |
 | `validation_failed` | 422 | Champs invalides : `error.fields` = `{ champ: message lisible }` (avis : `corrected.<champ>`). |
 | `password_change_required` | 403 | Hub : mot de passe provisoire à changer avant toute autre action. |
+| `conflict` | 409 | Salle déjà réservée (`error.details.conflicts`). |
+| `stale_revision` | 409 | Réservation modifiée entre-temps (`revision` périmée). |
 | `rate_limited` | 429 | Trop de tentatives de connexion au hub (`Retry-After`). |
 | `server_misconfigured` | 500 | Variable d'environnement manquante ou trop courte. |
 | `server_error` | 500 | Erreur imprévue. |
 
 ## Tests
 
-`npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
+`npm test` (node:test via `scripts/ts-resolve.mjs`) : validation, transitions, sessions, empreintes, écriture atomique et verrou ; salle des fêtes (`lib/salle-des-fetes/salle.test.ts`) : conflits, annulation/restauration, révision, lecture sans données personnelles, exports, projection publique, import idempotent ; hub (`lib/hub/hub.test.ts`) : sessions, droits, mustChangePassword, limitation, dernier admin, audit, CLI.
 
 ## Pages publiques
 
