@@ -124,5 +124,10 @@ test("journal : dernière connexion, filtre par personne, lignes illisibles igno
   assert.ok(entries.length >= 2 && entries.every((e) => e.actor === "alice" || e.detail?.startsWith("alice")));
   assert.equal(entries[0].action !== undefined, true);
   assert.equal((await adminReadAudit(admin, "nobody")).length, 0);
+  await audit({ actor: "root", action: "user.disable", detail: "alicia" });
+  await audit({ actor: "root", action: "user.create", detail: "alice (membre)" });
+  const exact = await adminReadAudit(admin, "alice");
+  assert.ok(!exact.some((e) => e.detail === "alicia"));
+  assert.ok(exact.some((e) => e.detail === "alice (membre)"));
   assert.equal((await adminReadAudit(admin, undefined, 1)).length, 1);
 });

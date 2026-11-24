@@ -70,9 +70,9 @@ Le hub `/espace-bureau` remplace à terme les mots de passe communs ci-dessus (q
 
 **Premier admin** (sur le serveur, saisie masquée) : `DATA_DIR=/var/lib/succieu-web node scripts/hub-create-admin.mjs <prenom> ["Nom affiché"]`.
 
-## Console d'administration des comptes (`/espace-bureau/admin`)
+## Console d'administration des comptes (`/espace-bureau/administration`)
 
-Page `noindex` (sous `/espace-bureau`, donc hors sitemap et `Disallow` dans `robots.txt`), client, réservée au rôle `admin` du hub : connexion sur place avec le compte individuel ; un membre voit « Accès réservé » (403). Fonctions : liste des comptes (nom, identifiant, rôle, actif, dernière connexion tirée du journal), création (identifiant proposé = prénom sans accent, modifiable), grille de droits Aucun / Lecture / Écriture à enregistrement explicite, réinitialisation du mot de passe, désactivation / réactivation, changement de rôle, journal filtrable par personne. Le mot de passe provisoire n'est affiché qu'une fois (copier / imprimer), jamais relu ni journalisé. Confirmation avant enregistrement des droits, réinitialisation et (dés)activation. Garde-fous : on ne peut ni se désactiver, ni changer son propre rôle, ni réinitialiser son propre mot de passe (409 `invalid_transition`) ; le dernier admin actif est protégé (bibliothèque `lib/hub/users.ts`).
+Page `noindex` (sous `/espace-bureau`, donc hors sitemap et `Disallow` dans `robots.txt`), servie dans la coquille du hub (groupe `(hub)`, garde `requireHubPageUser` + rôle `admin` ; un membre est redirigé vers l'accueil, la connexion et le mot de passe imposé sont ceux de la coquille). L'ancienne URL `/espace-bureau/admin` redirige (permanent) vers celle-ci. Fonctions : liste des comptes (nom, identifiant, rôle, actif, dernière connexion tirée du journal), création (identifiant proposé = prénom sans accent, modifiable), grille de droits Aucun / Lecture / Écriture à enregistrement explicite, réinitialisation du mot de passe, désactivation / réactivation, changement de rôle, journal filtrable par personne. Le mot de passe provisoire n'est affiché qu'une fois (copier / imprimer), jamais relu ni journalisé. Confirmation dans la page (bandeau Confirmer / Annuler, pas de `window.confirm`) avant enregistrement des droits, réinitialisation et (dés)activation. Garde-fous : on ne peut ni se désactiver, ni changer son propre rôle, ni réinitialiser son propre mot de passe (409 `invalid_transition`) ; le dernier admin actif est protégé (bibliothèque `lib/hub/users.ts`).
 
 Logique : `lib/hub/admin.ts` (testée dans `lib/hub/admin.test.ts`) ; composants : `components/hub-admin/`. Toutes les routes exigent la session hub admin (401/403) et, en écriture, l'origine.
 
@@ -97,7 +97,7 @@ Pages, toutes `noindex` (layout `app/espace-bureau/layout.tsx`), hors sitemap, `
 | `/espace-bureau/nouveau-mot-de-passe` | `nouveau-mot-de-passe/page.tsx` | Écran imposé tant que `mustChangePassword` ; toute autre page du hub y redirige. |
 | `/espace-bureau` | `(hub)/page.tsx` | Accueil : une tuile par module autorisé (icône, titre, description, résumé facultatif, « Lecture seule »). |
 | `/espace-bureau/compte` | `(hub)/compte/page.tsx` | Changer son mot de passe, taille du texte, se déconnecter. |
-| `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; **emplacement** (la gestion des comptes reste à brancher sur `lib/hub/users.ts`). |
+| `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; console de gestion des comptes (`components/hub-admin/`). `/espace-bureau/admin` y redirige. |
 | `/espace-bureau/<chemin du module>` | `(hub)/[module]/page.tsx` | Emplacement provisoire des modules sans page propre. |
 | `/espace-bureau/actualites` | `actualites/page.tsx` | Ancienne interface des actus (mots de passe communs), **déplacée telle quelle** ; le volet 4 la migre. Hors du groupe `(hub)`, donc sans la coquille. |
 | `/espace-bureau/moderation` | `moderation/` | Inchangé (session admin historique), hors coquille. |
