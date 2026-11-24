@@ -215,7 +215,18 @@ export async function adminResetPassword(admin: HubUser | null, id: string, body
       throw e;
     }
   }
-  let user = await setPassword(id, password, by);
+  let user: Awaited<ReturnType<typeof setPassword>>;
+  try {
+    user = await setPassword(id, password, by);
+  } catch (e) {
+    if (drive.status !== "disabled") {
+      const error = "Mots de passe hub et drive différents : refaire la réinitialisation.";
+      console.error(`[hub] ${error} (compte ${target.identifier})`);
+      await setDriveState(id, { driveSync: { at: target.driveSync?.at, error } }, by).catch(() => undefined);
+      throw new AppError("drive_sync_failed", error);
+    }
+    throw e;
+  }
   if (drive.status !== "disabled") user = await setDriveState(id, { driveSync: { at: new Date().toISOString() } }, by);
   return { user, password, drive };
 }

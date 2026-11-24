@@ -16,6 +16,8 @@ export type DriveRow = {
   driveLogin: string;
   hub: { id: string; identifier: string; displayName: string; active: boolean } | null;
   drive: { displayName: string; enabled: boolean | null } | null;
+  /** Compte technique du drive (administrateur) : jamais rattachable. */
+  technical?: boolean;
   status: "ok" | "drive-sans-hub" | "hub-sans-drive" | "desactive-hub-seulement" | "desactive-drive-seulement";
 };
 export type DriveOutcome = { status: "disabled" | "created" | "attached" | "updated" | "error"; error?: string };

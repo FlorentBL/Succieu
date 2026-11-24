@@ -16,7 +16,7 @@ import {
   adminSetActive,
   adminUpdateUser,
 } from "./admin";
-import { compareAccounts, driveConfig, driveSyncEnabled, listDriveAccounts, resetDriveToken } from "./drive-sync";
+import { compareAccounts, driveConfig, driveSyncEnabled, ensureDriveAccount, listDriveAccounts, resetDriveToken, setDrivePassword, setDriveEnabled } from "./drive-sync";
 import { migrateAccounts, parseAccountSpecs } from "./migrate";
 import { createUser, getUserById, getUserByIdentifier, type HubUser } from "./users";
 
@@ -24,7 +24,7 @@ import { createUser, getUserById, getUserByIdentifier, type HubUser } from "./us
  * Faux serveur local : Konnect (OIDC code + PKCE, logon avec XSRF/Origin/Referer) et Libre Graph
  * simulés. AUCUN appel réel au drive. Les mots de passe des comptes simulés restent en mémoire.
  */
-const ADMIN = { user: "admin-test", pass: "mdp-admin-fictif" };
+const ADMIN = { user: "admin-drive", pass: "mdp-admin-fictif" };
 type FakeUser = { id: string; login: string; displayName: string; mail?: string; password: string; enabled: boolean; roles: string[] };
 
 let server: http.Server;
@@ -398,4 +398,32 @@ test("migration : comptes drive créés ou rattachés avec le même mot de passe
   const pws2 = [...(await fs.readFile(sheet, "utf8")).matchAll(/Mot de passe : (\S+)/g)].map((m) => m[1]);
   assert.equal(drive.get("secretariat")!.password, pws2[2]);
   assert.ok(await verifyPassword(pws2[2], (await getUserByIdentifier("marie"))!.passwordHash));
+});
+
+test("garde-fou : le compte administrateur du drive n'est jamais rattachable ni modifié", async () => {
+  driveOn();
+  seedDrive("admin-drive");
+  seedDrive("marie");
+  const a = await admin();
+  const { user } = await adminCreateUser(a, { displayName: "Marie Test", identifier: "marie" });
+  const before = drive.get("admin-drive")!.password;
+  const writes = () => calls.filter((c) => c.method !== "GET").length;
+  const w0 = writes();
+  for (const l of ["admin", "ADMIN", "Admin-Drive", " admin-drive "]) {
+    assert.equal(await code(adminUpdateUser(a, user.id, { driveLogin: l })), "validation_failed", l);
+    assert.equal(await code(adminCreateUser(a, { displayName: "Autre Test", driveLogin: l })), "validation_failed", l);
+    assert.equal(await code(adminDriveAttach(a, { userId: user.id, driveLogin: l })), "validation_failed", l);
+  }
+  const cfg = driveConfig()!;
+  for (const fn of [
+    () => ensureDriveAccount("Admin-Drive", "X", "mdp-long-fictif-1", cfg),
+    () => setDrivePassword("admin", "mdp-long-fictif-1", cfg),
+    () => setDriveEnabled("ADMIN", false, cfg),
+  ]) await assert.rejects(fn(), (e: AppError) => e.code === "validation_failed");
+  assert.equal(writes(), w0, "aucune écriture sur le drive");
+  assert.equal(drive.get("admin-drive")!.password, before);
+  assert.equal(drive.get("admin-drive")!.enabled, true);
+  const rows = compareAccounts([], [{ id: "1", login: "admin-drive", displayName: "Admin", enabled: true }]);
+  assert.equal(rows[0].technical, true);
+  assert.throws(() => parseAccountSpecs([{ displayName: "Faux Admin", driveLogin: "Admin" }]), (e: AppError) => e.code === "validation_failed" && /administrateur technique/.test(e.message));
 });

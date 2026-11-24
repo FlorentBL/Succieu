@@ -65,10 +65,24 @@ const IDENTIFIER_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 /** Identifiant du compte drive : celui du hub par défaut. */
 export const driveLoginOf = (u: Pick<HubUser, "identifier" | "driveLogin">) => u.driveLogin || u.identifier;
 
+/** Compte administrateur du drive (« admin » ou DRIVE_ADMIN_USER), casse ignorée : jamais rattachable à un compte du hub. */
+export function isDriveAdminLogin(login: string, adminUser: string | undefined = process.env.DRIVE_ADMIN_USER): boolean {
+  const v = login.trim().toLowerCase();
+  return v === "admin" || (!!adminUser?.trim() && v === adminUser.trim().toLowerCase());
+}
+
+export const DRIVE_ADMIN_MESSAGE =
+  "Ce compte est l'administrateur technique du drive : il ne peut pas être rattaché à un compte du hub.";
+
 /** Valide un identifiant drive (même forme que l'identifiant du hub, point et souligné admis). */
 export function parseDriveLogin(raw: unknown, fallback: string): string {
   if (raw === undefined || raw === null || raw === "") return fallback;
   const v = typeof raw === "string" ? normalizeIdentifier(raw) : "";
+  // Seul un identifiant drive explicite est refusé ; un compte hub nommé « admin » reste possible
+  // (sans synchro : ensureDriveAccount & co refusent ce login).
+  if (isDriveAdminLogin(v)) {
+    throw new AppError("validation_failed", DRIVE_ADMIN_MESSAGE, { fields: { driveLogin: DRIVE_ADMIN_MESSAGE } });
+  }
   if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(v)) {
     throw new AppError("validation_failed", "Identifiant du drive invalide.", {
       fields: { driveLogin: "Lettres, chiffres, tiret, point ou souligné." },

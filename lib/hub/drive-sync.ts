@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { AppError } from "../content/errors";
-import { driveLoginOf, type HubUser } from "./users";
+import { DRIVE_ADMIN_MESSAGE, driveLoginOf, isDriveAdminLogin, type HubUser } from "./users";
 
 /**
  * Synchronisation des comptes du hub avec le drive (ownCloud Infinite Scale 8, IdP intégré).
@@ -195,6 +195,11 @@ const need = (): DriveConfig => {
   return cfg;
 };
 
+/** Garde-fou défensif : jamais d'appel au drive pour le compte administrateur du drive. */
+function assertNotAdmin(login: string, cfg: DriveConfig) {
+  if (isDriveAdminLogin(login, cfg.adminUser)) throw new AppError("validation_failed", DRIVE_ADMIN_MESSAGE, { fields: { driveLogin: DRIVE_ADMIN_MESSAGE } });
+}
+
 /** Compte drive par identifiant, ou null s'il n'existe pas. */
 export async function findDriveAccount(login: string, cfg: DriveConfig = need()): Promise<DriveAccount | null> {
   const res = await graph(cfg, "GET", `/users/${encodeURIComponent(login)}`);
@@ -222,6 +227,7 @@ export async function ensureDriveAccount(
   password: string,
   cfg: DriveConfig = need(),
 ): Promise<EnsureResult> {
+  assertNotAdmin(login, cfg);
   const existing = await findDriveAccount(login, cfg);
   if (existing) {
     await patchUser(cfg, login, { passwordProfile: { password } }, "mot de passe");
@@ -252,11 +258,13 @@ async function patchUser(cfg: DriveConfig, login: string, body: unknown, what: s
 
 /** Mot de passe d'un compte drive existant. */
 export async function setDrivePassword(login: string, password: string, cfg: DriveConfig = need()): Promise<void> {
+  assertNotAdmin(login, cfg);
   await patchUser(cfg, login, { passwordProfile: { password } }, "changement de mot de passe");
 }
 
 /** Active / désactive (accountEnabled) un compte drive existant ; ne supprime rien. */
 export async function setDriveEnabled(login: string, enabled: boolean, cfg: DriveConfig = need()): Promise<void> {
+  assertNotAdmin(login, cfg);
   await patchUser(cfg, login, { accountEnabled: enabled }, enabled ? "réactivation du compte" : "désactivation du compte");
 }
 
@@ -266,6 +274,8 @@ export type ComparisonRow = {
   /** Compte du hub correspondant, s'il y en a un. */
   hub: { id: string; identifier: string; displayName: string; active: boolean } | null;
   drive: { displayName: string; enabled: boolean | null } | null;
+  /** Compte technique (administrateur du drive) : listé mais jamais rattachable. */
+  technical?: boolean;
   /** Écart constaté. */
   status: "ok" | "drive-sans-hub" | "hub-sans-drive" | "desactive-hub-seulement" | "desactive-drive-seulement";
 };
@@ -287,7 +297,7 @@ export function compareAccounts(users: HubUser[], drive: DriveAccount[]): Compar
   });
   for (const d of drive) {
     if (!seen.has(d.login)) {
-      rows.push({ driveLogin: d.login, hub: null, drive: { displayName: d.displayName, enabled: d.enabled }, status: "drive-sans-hub" });
+      rows.push({ driveLogin: d.login, hub: null, drive: { displayName: d.displayName, enabled: d.enabled }, status: "drive-sans-hub", ...(isDriveAdminLogin(d.login) ? { technical: true } : {}) });
     }
   }
   return rows;
