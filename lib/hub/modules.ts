@@ -15,7 +15,7 @@ export const HUB_MODULES = [
     icon: "people",
     label: "Espace Bureau",
     path: "/espace-bureau/bureau",
-    description: "Suivi du bureau municipal.",
+    description: "Suivi des dossiers du bureau.",
   },
   {
     id: "salle-des-fetes",

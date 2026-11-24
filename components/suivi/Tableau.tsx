@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Notice } from "@/components/bureau/fields";
-import { dateLongue, libellePriorite, niveauPriorite } from "@/lib/suivi/affichage";
+import { echeanceAffichage, libellePriorite, niveauPriorite } from "@/lib/suivi/affichage";
 import { COLONNES, avancementDe, colonneDe, regrouper } from "@/lib/suivi/tableau";
 import type { Colonne } from "@/lib/suivi/tableau";
 import { ApiError, envoyer, messageErreur } from "./api";
@@ -129,7 +129,7 @@ export function Tableau({ cartes: initiales, lecture = false }: { cartes: CarteT
                       </h3>
                       {d.referents || d.echeance ? (
                         <p className="mt-1 text-sm text-ink-muted">
-                          {d.referents ? `Référent : ${d.referents}` : ""}{d.referents && d.echeance ? " · " : ""}{d.echeance ? `Pour le ${dateLongue(d.echeance)}` : ""}
+                          {d.referents}{d.referents && d.echeance ? " · " : ""}{echeanceAffichage(d.echeance)?.phrase ?? ""}
                         </p>
                       ) : null}
                       {lecture ? null : (

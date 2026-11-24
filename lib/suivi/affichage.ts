@@ -46,6 +46,34 @@ export function nomsReferents(d: Pick<Dossier, "referents">, noms: Noms): string
   return d.referents.map((id) => noms[id] ?? "").filter(Boolean).join(", ");
 }
 
+/** Échéance : date certaine → « Pour le 15 décembre 2026 » (nom « Pour le ») ; libellé → « Échéance : ASAP » (nom « Échéance »). */
+export function echeanceAffichage(echeance: string): { nom: string; valeur: string; phrase: string } | null {
+  if (!echeance) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(echeance)) {
+    const v = dateLongue(echeance);
+    return { nom: "Pour le", valeur: v, phrase: `Pour le ${v}` };
+  }
+  return { nom: "Échéance", valeur: echeance, phrase: `Échéance : ${echeance}` };
+}
+
+/** Référents : comptes actuels, puis anciens noms sans compte (mention discrète). Libellé au pluriel s'il y en a plusieurs. */
+export function referentsAffichage(
+  d: Pick<Dossier, "referents" | "anciensReferents">,
+  noms: Noms,
+): { label: string; texte: string } | null {
+  const actuels = d.referents.map((id) => noms[id] ?? "").filter(Boolean);
+  const anciens = (d.anciensReferents ?? []).filter(Boolean).map((n) => `${n} (sans compte)`);
+  const tous = [...actuels, ...anciens];
+  if (!tous.length) return null;
+  return { label: tous.length > 1 ? "Référents" : "Référent", texte: tous.join(", ") };
+}
+
+/** Ligne « Référents : A, B » (vide s'il n'y a personne). */
+export function referentsPhrase(d: Pick<Dossier, "referents" | "anciensReferents">, noms: Noms): string {
+  const r = referentsAffichage(d, noms);
+  return r ? `${r.label} : ${r.texte}` : "";
+}
+
 /** Pour l'ordre du jour : urgents + marqués « à voir en bureau », marqués d'abord. */
 export function ordreDuJour(dossiers: Dossier[]): Dossier[] {
   return dossiers

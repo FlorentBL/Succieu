@@ -3,7 +3,7 @@ import { Filtres, Segment, appliquerPriorite, lireRecherche, resumeFiltres } fro
 import { Tableau } from "@/components/suivi/Tableau";
 import type { CarteTableau } from "@/components/suivi/Tableau";
 import { requireModulePage } from "@/lib/hub/page-guards";
-import { aujourdhui, enRetard, nomsReferents } from "@/lib/suivi/affichage";
+import { aujourdhui, enRetard, referentsPhrase } from "@/lib/suivi/affichage";
 import { filtrerDossiers } from "@/lib/suivi/model";
 import { lireNoms, readData } from "@/lib/suivi/store";
 
@@ -28,7 +28,7 @@ export default async function PageTableau({ searchParams }: { searchParams: Prom
     priorite: d.priorite,
     avancement: d.avancement,
     echeance: d.echeance,
-    referents: nomsReferents(d, noms),
+    referents: referentsPhrase(d, noms),
     retard: enRetard(d, today),
     aVoirEnBureau: d.aVoirEnBureau,
     revision: d.revision,

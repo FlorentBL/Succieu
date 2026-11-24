@@ -18,7 +18,7 @@ export default async function SuiviLayout({ children }: { children: React.ReactN
   return (
     <>
       <div className="print:hidden">
-        <PageHero slim title="Espace Bureau" description="Suivi des dossiers du bureau municipal." />
+        <PageHero slim title="Espace Bureau" description="Suivi des dossiers du bureau." />
       </div>
       <PageShell className="pb-16 pt-4 sm:pb-20">
         <SuiviNav onglets={onglets} exportHref="/api/espace-bureau/export" />

@@ -3,7 +3,7 @@ import { TextSizeApplier } from "@/components/hub/TextSize";
 import { TEXT_SIZE_SCRIPT } from "@/components/hub/sizeStore";
 
 export const metadata: Metadata = {
-  title: "Espace bureau",
+  title: "Espace des élus",
   robots: { index: false, follow: false, nocache: true },
 };
 

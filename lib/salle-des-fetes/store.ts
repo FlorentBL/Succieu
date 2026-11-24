@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { AppError } from "../content/errors";
-import { dataPath, readJson, withLock, writeFileAtomic } from "../content/storage";
+import { dataPath, ensurePrivateDir, readJson, withLock, writeFileAtomic } from "../content/storage";
 import {
   buildDashboard,
   conflictMessage,
@@ -35,6 +35,7 @@ async function writeDb(db: Db): Promise<void> {
 
 /** Écriture sérialisée : lecture, mutation, écriture atomique, puis événements d'audit. */
 async function mutate<T>(fn: (db: Db) => { result: T; events: Omit<AuditEvent, "id" | "at">[] }): Promise<T> {
+  await ensurePrivateDir(dir());
   return withLock(reservationsFile(), async () => {
     const db = await readDb();
     const { result, events } = fn(db);
@@ -47,7 +48,7 @@ async function mutate<T>(fn: (db: Db) => { result: T; events: Omit<AuditEvent, "
 export async function appendAudit(events: Omit<AuditEvent, "id" | "at">[], at = new Date().toISOString()): Promise<void> {
   if (!events.length) return;
   const lines = events.map((e) => JSON.stringify({ id: randomUUID(), at, ...e })).join("\n") + "\n";
-  await fs.mkdir(dir(), { recursive: true });
+  await ensurePrivateDir(dir());
   await fs.appendFile(auditFile(), lines, { mode: 0o600 });
   await fs.chmod(auditFile(), 0o600);
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { aujourdhui, dateLongue, enRetard, libellePriorite, niveauPriorite, nomsReferents } from "@/lib/suivi/affichage";
+import { aujourdhui, enRetard, libellePriorite, niveauPriorite, referentsPhrase, echeanceAffichage } from "@/lib/suivi/affichage";
 import type { NiveauPriorite } from "@/lib/suivi/affichage";
 import { PRIORITES } from "@/lib/suivi/types";
 import type { Dossier, Listes, Noms } from "@/lib/suivi/types";
@@ -81,7 +81,8 @@ export function Segment({ actif, nb, nbTous, liens = { mes: BASE, tous: `${BASE}
 /** Une carte par dossier : seuls les champs renseignés sont affichés. */
 export function CarteDossier({ d, noms, today, sansPriorite = false }: { d: Dossier; noms: Noms; today: string; sansPriorite?: boolean }) {
   const niveau = niveauPriorite(d.priorite);
-  const refs = nomsReferents(d, noms);
+  const refs = referentsPhrase(d, noms);
+  const ech = echeanceAffichage(d.echeance)?.phrase ?? "";
   const retard = enRetard(d, today);
   const pastilles = (niveau !== "aucun" && !sansPriorite) || retard || d.aVoirEnBureau;
   return (
@@ -96,9 +97,9 @@ export function CarteDossier({ d, noms, today, sansPriorite = false }: { d: Doss
       <h3 className="text-lg font-semibold leading-snug">
         <Link href={`${BASE}/dossier/${d.id}`} className={`underline-offset-2 hover:underline ${focus}`}>{d.titre}</Link>
       </h3>
-      {refs || d.echeance ? (
+      {refs || ech ? (
         <p className="mt-1 text-[0.95rem] text-ink-muted">
-          {refs ? `Référent : ${refs}` : ""}{refs && d.echeance ? " · " : ""}{d.echeance ? `Pour le ${dateLongue(d.echeance)}` : ""}
+          {refs}{refs && ech ? " · " : ""}{ech}
         </p>
       ) : null}
       {d.prochaineAction ? <p className="mt-1 text-[0.95rem]"><span className="font-semibold">Prochaine action :</span> {d.prochaineAction}</p> : null}

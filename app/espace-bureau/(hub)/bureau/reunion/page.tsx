@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PrintButton } from "@/components/suivi/PrintButton";
 import { Pastille } from "@/components/suivi/ui";
 import { requireModulePage } from "@/lib/hub/page-guards";
-import { aujourdhui, dateLongue, enRetard, libellePriorite, niveauPriorite, nomsReferents, ordreDuJour } from "@/lib/suivi/affichage";
+import { aujourdhui, dateLongue, enRetard, libellePriorite, niveauPriorite, echeanceAffichage, referentsAffichage, ordreDuJour } from "@/lib/suivi/affichage";
 import { lireNoms, readData } from "@/lib/suivi/store";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,8 @@ export default async function Reunion() {
       ) : (
         <ol className="grid gap-3">
           {points.map((d, i) => {
-            const refs = nomsReferents(d, noms);
+            const refs = referentsAffichage(d, noms);
+            const ech = echeanceAffichage(d.echeance);
             const niveau = niveauPriorite(d.priorite);
             const derniere = d.nouvelles.at(-1);
             return (
@@ -36,11 +37,11 @@ export default async function Reunion() {
                   {enRetard(d, today) ? <Pastille type="retard">En retard</Pastille> : null}
                   {d.aVoirEnBureau ? <Pastille type="bureau">À voir en bureau</Pastille> : null}
                 </div>
-                {refs ? <p><strong>Référent : </strong>{refs}</p> : null}
+                {refs ? <p><strong>{refs.label} : </strong>{refs.texte}</p> : null}
                 {d.decisionAttendue ? <p><strong>Décision attendue de : </strong>{d.decisionAttendue}</p> : null}
                 {d.blocage && d.blocage !== "Aucun" ? <p><strong>Ce qui bloque : </strong>{d.blocage}</p> : null}
                 {d.prochaineAction ? <p><strong>Prochaine action : </strong>{d.prochaineAction}</p> : null}
-                {d.echeance ? <p><strong>Pour le : </strong>{dateLongue(d.echeance)}</p> : null}
+                {ech ? <p><strong>{ech.nom} : </strong>{ech.valeur}</p> : null}
                 {derniere ? <p><strong>Dernière nouvelle : </strong>{derniere.texte}</p> : null}
                 <p className="mt-1 print:hidden"><Link href={`/espace-bureau/bureau/dossier/${d.id}`} className="font-semibold text-moss-dark underline">Ouvrir le dossier</Link></p>
               </li>
