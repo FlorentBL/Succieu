@@ -42,7 +42,8 @@ export async function readAudit(opts: { person?: string; limit?: number } = {}):
       continue;
     }
     if (typeof l.action !== "string" || typeof l.actor !== "string") continue;
-    if (person && l.actor !== person && !(l.detail ?? "").startsWith(person)) continue;
+    // Comparaison exacte : l'acteur, ou la cible (1er mot du détail : « identifiant » ou « identifiant (rôle) »).
+    if (person && l.actor !== person && (l.detail ?? "").split(" ")[0] !== person) continue;
     out.push(l);
   }
   return out;

@@ -1,82 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { focusRing } from "@/components/bureau/fields";
+import { Card } from "@/components/ui/Card";
 import { btnDanger, btnPrimary, btnSecondary } from "@/components/moderation/ui";
 import { ACCESS_LEVELS, HUB_MODULES, type AccessLevel } from "@/lib/hub/modules";
-import { ACTION_LABEL, ApiError, call, formatDate, type AdminUser, type AuditLine, type Rights } from "./api";
+import { ACTION_LABEL, call, formatDate, type AdminUser, type AuditLine, type Rights } from "./api";
 
-type Session = { authenticated: true; user: { id: string; displayName: string }; role: "admin" | "membre" };
-type Gate = { state: "loading" } | { state: "out" } | { state: "forbidden" } | { state: "in"; me: Session };
 
 const LEVEL_LABEL: Record<AccessLevel, string> = { none: "Aucun", read: "Lecture", write: "Écriture" };
-const card = "rounded-[1.25rem] border border-border-subtle bg-surface p-4 shadow-[0_10px_28px_-18px_rgba(20,33,26,0.22)] sm:p-6";
-const input =
-  "mt-1 block min-h-12 w-full rounded-xl border-2 border-ink-subtle bg-white px-4 text-base focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
+const card = "!p-4 sm:!p-6";
+const input = `mt-1 min-h-12 block w-full rounded-xl border border-ink-subtle/60 bg-surface px-3.5 py-2.5 text-base text-ink ${focusRing}`;
 
 const emptyRights = (): Rights => Object.fromEntries(HUB_MODULES.map((m) => [m.id, "none"])) as Rights;
 const suggestIdentifier = (name: string) =>
   name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().split(/\s+/)[0]?.replace(/[^a-z0-9-]/g, "") ?? "";
 
-export function HubAdminApp() {
-  const [gate, setGate] = useState<Gate>({ state: "loading" });
-
-  const check = useCallback(async () => {
-    try {
-      const s = await call<Session>("/api/hub/session");
-      if (s.role !== "admin") setGate({ state: "forbidden" });
-      else setGate({ state: "in", me: s });
-    } catch (e) {
-      // 403 password_change_required : session valide mais sans droit d'agir ici.
-      setGate(e instanceof ApiError && e.status === 403 ? { state: "forbidden" } : { state: "out" });
-    }
-  }, []);
-  useEffect(() => void check(), [check]);
-
-  if (gate.state === "loading") return <p role="status" className="text-ink-muted">Vérification de votre accès…</p>;
-  if (gate.state === "out") return <Login onDone={check} />;
-  if (gate.state === "forbidden") {
-    return (
-      <div className={card} role="alert">
-        <h2 className="font-display text-2xl font-bold text-moss-dark">Accès réservé</h2>
-        <p className="mt-2">Cette page est réservée aux administrateurs des comptes (403).</p>
-      </div>
-    );
-  }
-  return <Console me={gate.me} />;
-}
-
-function Login({ onDone }: { onDone: () => void }) {
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const id = useId();
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    try {
-      await call("/api/hub/login", "POST", { identifier, password });
-      setPassword("");
-      onDone();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Connexion impossible.");
-    }
-  }
-  return (
-    <form onSubmit={submit} className={`${card} mx-auto max-w-md`}>
-      <h2 className="font-display text-2xl font-bold text-moss-dark">Connexion</h2>
-      <label htmlFor={`${id}-i`} className="mt-4 block font-semibold">Identifiant</label>
-      <input id={`${id}-i`} className={input} autoComplete="username" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required />
-      <label htmlFor={`${id}-p`} className="mt-4 block font-semibold">Mot de passe</label>
-      <input id={`${id}-p`} type="password" className={input} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <div role="alert" className="mt-3 font-medium text-tuile">{error}</div>
-      <button type="submit" className={`${btnPrimary} mt-4 w-full`}>Se connecter</button>
-    </form>
-  );
-}
-
 type Secret = { who: string; password: string; kind: "création" | "réinitialisation" };
 
-function Console({ me }: { me: Session }) {
+/** Console des comptes ; la coquille (page serveur) garantit session et rôle admin. */
+export function HubAdminApp({ selfId }: { selfId: string }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -124,7 +67,7 @@ function Console({ me }: { me: Session }) {
           <UserCard
             key={u.id}
             user={u}
-            self={u.id === me.user.id}
+            self={u.id === selfId}
             onSave={(patch) => act(() => call(`/api/admin/users/${u.id}`, "PATCH", patch), "Modifications enregistrées.")}
             onActive={(active) => act(() => call(`/api/admin/users/${u.id}/active`, "POST", { active }), active ? "Compte réactivé." : "Compte désactivé.")}
             onReset={() =>
@@ -144,7 +87,7 @@ function Console({ me }: { me: Session }) {
 function SecretCard({ secret, onClose }: { secret: Secret; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className={`${card} border-2 border-moss`} role="alert">
+    <Card className={`${card} border-2 !border-moss`}>
       <h2 className="font-display text-xl font-bold text-moss-dark">Mot de passe provisoire — {secret.kind}</h2>
       <p className="mt-1">Pour {secret.who}. <strong>Il ne sera plus jamais affiché</strong> : copiez-le ou imprimez-le maintenant. La personne devra le changer à sa première connexion.</p>
       <p className="mt-3 select-all break-all rounded-xl bg-pre-pale p-4 font-mono text-2xl font-bold" data-testid="temp-password">{secret.password}</p>
@@ -155,7 +98,7 @@ function SecretCard({ secret, onClose }: { secret: Secret; onClose: () => void }
         <button type="button" className={btnSecondary} onClick={() => window.print()}>Imprimer</button>
         <button type="button" className={btnSecondary} onClick={onClose}>J&apos;ai noté, fermer</button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -203,7 +146,7 @@ function CreateForm({ onCreated, onError }: { onCreated: (u: AdminUser, pw: stri
 
   if (!open) return <button type="button" className={btnPrimary} onClick={() => setOpen(true)}>+ Créer un compte</button>;
   return (
-    <form onSubmit={submit} className={card}>
+    <Card className={card}><form onSubmit={submit}>
       <h2 className="font-display text-xl font-bold text-moss-dark">Nouveau compte</h2>
       <label htmlFor={`${id}-n`} className="mt-4 block font-semibold">Nom affiché</label>
       <input id={`${id}-n`} className={input} required maxLength={80} value={displayName}
@@ -222,7 +165,7 @@ function CreateForm({ onCreated, onError }: { onCreated: (u: AdminUser, pw: stri
         <button type="submit" className={btnPrimary}>Créer le compte</button>
         <button type="button" className={btnSecondary} onClick={() => setOpen(false)}>Annuler</button>
       </div>
-    </form>
+    </form></Card>
   );
 }
 
@@ -236,9 +179,10 @@ function UserCard({ user, self, onSave, onActive, onReset }: {
   const dirty = role !== user.role || JSON.stringify(rights) !== JSON.stringify(user.rights);
   useEffect(() => { setRights(user.rights); setRole(user.role); }, [user]);
 
-  const confirmThen = (msg: string, fn: () => void) => () => { if (window.confirm(msg)) fn(); };
+  const [pending, setPending] = useState<{ msg: string; fn: () => void } | null>(null);
+  const confirmThen = (msg: string, fn: () => void) => () => setPending({ msg, fn });
   return (
-    <article className={`${card} ${user.active ? "" : "opacity-80"}`} aria-label={user.displayName}>
+    <Card className={`${card} ${user.active ? "" : "opacity-80"}`}><article aria-label={user.displayName}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-display text-xl font-bold">{user.displayName}{self && " (vous)"}</h3>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${user.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>
@@ -259,6 +203,15 @@ function UserCard({ user, self, onSave, onActive, onReset }: {
       </div>
       <h4 className="mt-4 font-semibold">Droits par module</h4>
       {role === "admin" ? <p className="text-ink-muted">Écriture partout (administrateur).</p> : <RightsGrid name={user.id} rights={rights} onChange={setRights} />}
+      {pending && (
+        <div role="alertdialog" aria-label="Confirmation" className="mt-4 rounded-xl border-2 border-moss bg-pre-pale p-4">
+          <p className="font-semibold">{pending.msg}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button type="button" className={btnPrimary} autoFocus onClick={() => { const f = pending.fn; setPending(null); f(); }}>Confirmer</button>
+            <button type="button" className={btnSecondary} onClick={() => setPending(null)}>Annuler</button>
+          </div>
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={btnPrimary} disabled={!dirty}
           onClick={confirmThen(`Enregistrer le rôle et les droits de ${user.displayName} ?`, () => onSave({ role, rights }))}>
@@ -277,7 +230,7 @@ function UserCard({ user, self, onSave, onActive, onReset }: {
           </>
         )}
       </div>
-    </article>
+    </article></Card>
   );
 }
 
@@ -292,7 +245,7 @@ function AuditPanel({ users }: { users: AdminUser[] }) {
       .catch((e) => setErr(e instanceof Error ? e.message : "Journal indisponible."));
   }, [person]);
   return (
-    <section aria-labelledby={id} className={card}>
+    <Card className={card}><section aria-labelledby={id}>
       <h2 id={id} className="font-display text-2xl font-bold text-moss-dark">Journal</h2>
       <label className="mt-3 block font-semibold">Personne
         <select className={input} value={person} onChange={(e) => setPerson(e.target.value)}>
@@ -311,6 +264,6 @@ function AuditPanel({ users }: { users: AdminUser[] }) {
           ))}
         </ul>
       )}
-    </section>
+    </section></Card>
   );
 }
