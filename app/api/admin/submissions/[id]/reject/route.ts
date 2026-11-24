@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/hub/guards";
 import { handle, ok, readJsonBody } from "@/lib/auth/http";
 import { assertSameOrigin } from "@/lib/auth/origin";
 import { rejectSubmission } from "@/lib/content/store";

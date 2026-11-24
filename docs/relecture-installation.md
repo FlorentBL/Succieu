@@ -52,7 +52,7 @@ Les noms exacts d'options peuvent varier selon la version : vérifier avec `timo
 1. Vérifier l'environnement : `SUCCIEU_BASE_URL=… REVIEW_API_TOKEN=… RELECTURE_STATE_FILE=/tmp/etat-test.json node scripts/relecture/poll.mjs` → « Rien à faire. » ou création de tâches.
 2. Se connecter à l'espace bureau et soumettre une actualité de test (avec une faute volontaire et une date passée).
 3. Lancer `poll.mjs` (ou attendre 5 min) : une tâche « Relecture article a-… » apparaît pour `succieu.relecteur`. Relancer : « Rien à faire. » (déduplication).
-4. Laisser l'agent travailler : la saisie passe au statut `reviewed` (visible côté admin avec l'avis et la version corrigée) et l'alerte arrive dans `#alertes-mairie` et, si le mail est configuré, dans la boîte des modérateurs, avec le lien `…/espace-bureau/moderation/<id>`.
+4. Laisser l'agent travailler : la saisie passe au statut `reviewed` (visible côté admin avec l'avis et la version corrigée) et l'alerte arrive dans `#alertes-mairie` et, si le mail est configuré, dans la boîte des modérateurs, avec le lien `…/espace-bureau/actualites/moderation/<id>`.
 5. Rejeter la saisie de test depuis l'espace admin.
 
 Tests automatiques (aucun appel réseau) : `npm run test:relecture`.

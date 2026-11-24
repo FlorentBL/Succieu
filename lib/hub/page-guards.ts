@@ -35,3 +35,10 @@ export async function requireModulePage(id: ModuleId): Promise<{ user: HubUser; 
   if (!hasAccess(user, id, "read")) redirect("/espace-bureau");
   return { user, level: hasAccess(user, id, "write") ? "write" : "read" };
 }
+
+/** Page de modération des saisies : réservée aux administrateurs (les autres retournent au module). */
+export async function requireModerationPage(): Promise<HubUser> {
+  const { user } = await requireModulePage("actus-agenda");
+  if (user.role !== "admin") redirect("/espace-bureau/actualites");
+  return user;
+}
