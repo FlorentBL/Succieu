@@ -417,7 +417,8 @@ function DrivePanel({ users, onChanged }: { users: AdminUser[]; onChanged: () =>
                   <td className={td}>{r.hub ? r.hub.displayName : "—"}</td>
                   <td className={`${td} ${r.status === "ok" ? "text-moss-dark" : "text-tuile"}`}>{DRIVE_STATUS[r.status]}</td>
                   <td className={td}>
-                    {r.status === "drive-sans-hub" && (
+                    {r.status === "drive-sans-hub" && r.technical && <span className="text-sm text-ink-muted">Compte technique du drive : non rattachable.</span>}
+                    {r.status === "drive-sans-hub" && !r.technical && (
                       <span className="flex flex-wrap items-center gap-2">
                         <label className="sr-only" htmlFor={`${id}-${r.driveLogin}`}>Compte hub à rattacher à {r.driveLogin}</label>
                         <select id={`${id}-${r.driveLogin}`} className={`${input} !mt-0 sm:w-56`} value={choice[r.driveLogin] ?? ""} onChange={(e) => setChoice({ ...choice, [r.driveLogin]: e.target.value })}>
