@@ -7,7 +7,7 @@ import { after, before, beforeEach, test } from "node:test";
 import { AppError } from "../content/errors";
 import { resetRateLimits } from "../auth/rate-limit";
 import { verifyPassword } from "../auth/password";
-import { checkAdmin, checkModule, checkUser } from "./access";
+import { allowedModules, checkAdmin, checkModule, checkUser } from "./access";
 import { hubChangePassword, hubLogin } from "./auth";
 import { createHubToken, resolveHubUser, sessionSeconds, verifyHubToken } from "./session";
 import {
@@ -207,4 +207,14 @@ test("CLI hub-create-admin : crée un admin avec mot de passe sur stdin", async 
   assert.equal(u?.role, "admin");
   assert.equal(u?.mustChangePassword, false);
   assert.ok(await verifyPassword("un-mot-de-passe-long", u!.passwordHash));
+});
+
+test("allowedModules : seuls les modules en lecture ou écriture, admin = tout en écriture", () => {
+  const member = { role: "membre" as const, rights: { "actus-agenda": "write", documents: "read", "salle-des-fetes": "none" } as never };
+  const list = allowedModules(member);
+  assert.deepEqual(list.map((m) => [m.id, m.level]), [["actus-agenda", "write"], ["documents", "read"]]);
+  const all = allowedModules({ role: "admin", rights: {} as never });
+  assert.equal(all.length, 4);
+  assert.ok(all.every((m) => m.level === "write"));
+  assert.equal(allowedModules({ role: "membre", rights: {} as never }).length, 0);
 });
