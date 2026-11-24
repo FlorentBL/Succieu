@@ -79,6 +79,7 @@ Contrôler l'environnement (étape suivante) avant de basculer. Retour arrière 
 | **Retirer** | `ADMIN_PASSWORD_HASH` | Idem. |
 | Conserver | `DATA_DIR=/var/lib/succieu-web`, `SESSION_SECRET` (≥ 32 caractères), `REVIEW_API_TOKEN` (≥ 24), `SITE_ORIGINS` si présent | Inchangées. |
 | **Ajouter** (facultatif) | `HUB_SESSION_HOURS` | Durée de session en heures, défaut 2160 (90 jours). |
+| **Ajouter** (synchro drive) | `DRIVE_URL=https://drive.succieu.fr`, `DRIVE_ADMIN_USER=admin`, `DRIVE_ADMIN_PASSWORD` | Secret **repris de `/opt/ocis/.env.secret`** (`OCIS_ADMIN_PASSWORD`) côté serveur **sans l'afficher** (copie par un éditeur ou une redirection de fichier, jamais en argument de commande ni dans l'historique). Sans ces trois variables, la synchro est désactivée et le hub fonctionne seul. Facultatif : `DRIVE_MAIL_DOMAIN`. Le fichier `/etc/succieu-web/succieu-next.env` doit être en **640 root:loic**. **Risque assumé** : le hub détient alors un accès administrateur au drive. |
 | **Ajouter** (si Florent le fournit) | `BUREAU_DRIVE_URL` | https uniquement, lu côté serveur ; défaut `https://drive.succieu.fr/`. |
 
 Garder `SESSION_SECRET` inchangé n'est pas nécessaire : les anciennes sessions du site ne sont de toute façon pas reprises (tout le monde se reconnecte avec son compte).
@@ -145,8 +146,10 @@ sudo -u loic env DATA_DIR=$DATA_DIR node scripts/hub-migrate.mjs $ARGS --apply \
 chmod 600 /root/fiche-comptes-hub.txt
 ```
 
-- Comptes : créés avec un mot de passe provisoire (`xxxx-xxxx-xxxx`) écrit **uniquement** dans la fiche imprimable (0600, un bloc par personne, saut de page entre chaque) ; jamais dans la sortie, le rapport ni `hub-audit.jsonl`. La fiche est refusée si elle est dans le dépôt, et n'écrase jamais un fichier existant.
-- Idempotent : relancer ne recrée pas un compte existant (son mot de passe n'est pas modifié) ni ne réimporte un dossier ou une réservation déjà présents. Un compte dont la fiche est perdue se réinitialise dans `/espace-bureau/administration`.
+- **Avant d'appliquer, avec la synchro active** : `sudo -u loic env DATA_DIR=$DATA_DIR node scripts/drive-accounts.mjs` (variables `DRIVE_*` chargées ; lecture seule) liste les comptes du drive et l'écart avec `users.json`. Dans `comptes.json`, `"driveLogin"` indique le compte drive quand il diffère de l'identifiant (ex. la secrétaire : `"driveLogin": "secretariat"`).
+- **Étape de bascule — mots de passe communs hub + drive pour tous** : avec les variables `DRIVE_*` chargées, la migration crée ou rattache le compte drive de chaque personne et pose **le même mot de passe sur les deux** (le drive d'abord ; refus du drive ⇒ la personne n'est pas créée, signalée dans « ÉCHECS », relance sans danger). `--reset-all` repose aussi un nouveau mot de passe commun aux comptes déjà présents (nécessaire pour remplacer les mots de passe drive actuels des élus). Une fiche par personne : un identifiant et un mot de passe valables sur le site et le drive. Les espaces du drive (ex. « Bureau ») ne sont pas touchés : les accès se règlent dans le drive.
+- Comptes : créés avec un mot de passe attribué (`xxxx-xxxx-xxxx`) écrit **uniquement** dans la fiche imprimable (0600, un bloc par personne, saut de page entre chaque) ; jamais dans la sortie, le rapport ni `hub-audit.jsonl`. La fiche est refusée si elle est dans le dépôt, et n'écrase jamais un fichier existant.
+- Idempotent : relancer ne recrée pas un compte existant (son mot de passe n'est pas modifié) ni ne réimporte un dossier ou une réservation déjà présents. Un compte dont la fiche est perdue se réinitialise dans `/espace-bureau/administration` (mot de passe attribué par l'administrateur, aussi sur le drive). Les personnes ne peuvent pas changer elles-mêmes leur mot de passe.
 - Si une étape d'import échoue, le script le dit (« ÉCHEC PARTIEL ») et peut être relancé tel quel.
 - **Imprimer la fiche, la remettre en main propre, puis l'effacer** (`shred -u /root/fiche-comptes-hub.txt` ou équivalent) ; ne pas l'envoyer par messagerie.
 
@@ -166,7 +169,7 @@ curl -s https://succieu.fr/robots.txt | grep -E 'Disallow: /(espace-bureau|api)/
 
 Les anciennes routes `/api/bureau/{login,identity,logout,names,session}` et `/api/admin/{login,logout,session}` n'existent plus (404 attendu ; l'ancien contrôle « `/api/bureau/names` 401 » est périmé).
 
-Contrôles à la main (navigateur) : connexion de l'administrateur → `/espace-bureau` ; création d'un compte test depuis `/espace-bureau/administration` (provisoire affiché une fois), connexion avec ce provisoire et changement forcé, puis désactivation du compte test ; ouvrir chacun des modules (Actualités & agenda, Espace Bureau, Salle des fêtes, Documents) avec un compte de droits adaptés : lecture sans boutons d'écriture, écriture complète ; vérifier une réservation et un dossier importés ; ajouter et modifier une saisie de test puis la retirer ; ouvrir le lien Documents.
+Contrôles à la main (navigateur) : connexion de l'administrateur → `/espace-bureau` ; création d'un compte test depuis `/espace-bureau/administration` (mot de passe affiché une fois), connexion avec ce mot de passe (aucun changement imposé), puis désactivation du compte test ; ouvrir chacun des modules (Actualités & agenda, Espace Bureau, Salle des fêtes, Documents) avec un compte de droits adaptés : lecture sans boutons d'écriture, écriture complète ; vérifier une réservation et un dossier importés ; ajouter et modifier une saisie de test puis la retirer ; ouvrir le lien Documents.
 
 Ajouter dans le vhost `succieu.fr`, **s'il n'y est pas déjà**, `proxy_set_header X-Forwarded-For $remote_addr;` (et conserver `client_max_body_size 41m;`) : l'application prend la première valeur de `X-Forwarded-For` pour limiter les tentatives de connexion par IP ; si nginx la complète au lieu de l'écraser, un client peut la forger. Vérifier avec `nginx -t`.
 

@@ -8,7 +8,6 @@ import { HUB_MODULES, type ModuleId } from "./modules";
 export { allowedModules };
 
 export const HUB_LOGIN_PATH = "/espace-bureau/connexion";
-export const HUB_PASSWORD_PATH = "/espace-bureau/nouveau-mot-de-passe";
 
 /** Utilisateur de la session, ou null (pages serveur ; les routes API utilisent guards.ts). */
 export async function currentHubUser(): Promise<HubUser | null> {
@@ -16,11 +15,10 @@ export async function currentHubUser(): Promise<HubUser | null> {
   return resolveHubUser(jar.get(HUB_COOKIE)?.value);
 }
 
-/** Page protégée : redirige vers la connexion, ou vers le changement de mot de passe imposé. */
+/** Page protégée : redirige vers la connexion. */
 export async function requireHubPageUser(): Promise<HubUser> {
   const user = await currentHubUser();
   if (!user) redirect(HUB_LOGIN_PATH);
-  if (user.mustChangePassword) redirect(HUB_PASSWORD_PATH);
   return user;
 }
 

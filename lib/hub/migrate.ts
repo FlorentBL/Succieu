@@ -1,12 +1,17 @@
 import { promises as fs } from "node:fs";
 import { AppError } from "../content/errors";
+import { driveSyncEnabled, ensureDriveAccount, findDriveAccount } from "./drive-sync";
 import {
   createUser,
+  driveLoginOf,
+  generatePassword,
   listUsers,
   normalizeIdentifier,
+  parseDriveLogin,
   parseRights,
+  setDriveState,
+  setPassword,
   type HubRole,
-  type HubUser,
 } from "./users";
 
 /** Ligne de la liste fournie hors dépôt (jamais versionnée). */
@@ -15,6 +20,8 @@ export type AccountSpec = {
   identifier?: string;
   role?: HubRole;
   rights?: unknown;
+  /** Identifiant du compte drive si différent de l'identifiant (ex. « secretariat »). */
+  driveLogin?: string;
 };
 
 export type PlannedAccount = {
@@ -22,13 +29,20 @@ export type PlannedAccount = {
   identifier: string;
   role: HubRole;
   rights: unknown;
+  driveLogin: string;
 };
 
 export type AccountsReport = {
   /** Comptes créés (ou à créer en dry-run). Aucun mot de passe ici. */
   created: { identifier: string; role: HubRole }[];
+  /** Comptes déjà présents dont le mot de passe a été (ou serait) réinitialisé (--reset-all). */
+  reset: string[];
   /** Comptes déjà présents : laissés intacts (mot de passe inchangé). */
   existing: string[];
+  /** Comptes drive : à créer / à rattacher (simulation) ou créés / rattachés ; null = synchro désactivée. */
+  drive: { created: string[]; attached: string[] } | null;
+  /** Comptes non traités (le drive a refusé) : rien n'a changé pour eux, relancer après correction. */
+  failed: { identifier: string; error: string }[];
 };
 
 /**
@@ -63,48 +77,73 @@ export function parseAccountSpecs(input: unknown): PlannedAccount[] {
       throw new AppError("validation_failed", `${where} : rôle invalide (admin ou membre).`);
     }
     parseRights(s.rights); // lève si module ou niveau inconnu
-    return { displayName, identifier, role, rights: s.rights };
+    const driveLogin = parseDriveLogin(s.driveLogin, identifier);
+    return { displayName, identifier, role, rights: s.rights, driveLogin };
   });
 }
 
-/** Une personne de la fiche imprimable. */
+/** Une personne de la fiche imprimable : un seul identifiant et un seul mot de passe pour le site et le drive. */
 export function sheetBlock(
-  p: { displayName: string; identifier: string; password: string },
+  p: { displayName: string; identifier: string; password: string; driveLogin?: string },
   siteUrl: string,
+  driveUrl?: string,
 ): string {
+  const same = !p.driveLogin || p.driveLogin === p.identifier;
   return [
     `Espace Bureau — ${siteUrl}/espace-bureau/connexion`,
+    ...(driveUrl ? [`Drive du bureau — ${driveUrl}`] : []),
     "",
     `Nom         : ${p.displayName}`,
-    `Identifiant : ${p.identifier}`,
-    `Mot de passe provisoire : ${p.password}`,
+    `Identifiant : ${p.identifier}${driveUrl && !same ? ` (drive : ${p.driveLogin})` : ""}`,
+    `Mot de passe : ${p.password}`,
     "",
-    "À la première connexion, le site vous demandera de choisir votre propre mot de passe.",
+    driveUrl ? "Même identifiant et même mot de passe pour le site et le drive." : "Mot de passe attribué par l'administrateur.",
+    "Il ne se change pas soi-même : en cas d'oubli, s'adresser à l'administrateur.",
     "Cette fiche est personnelle : à remettre en main propre, puis à détruire.",
     "",
   ].join("\n");
 }
 
 /**
- * Crée les comptes manquants. Idempotent : un identifiant déjà présent n'est
- * ni modifié ni réinitialisé. Les mots de passe provisoires vont UNIQUEMENT
- * dans la fiche (fichier 0600, créé sans écraser), jamais dans le rapport.
+ * Crée les comptes manquants (hub + drive, même mot de passe) ; `resetExisting` pose aussi un
+ * nouveau mot de passe commun aux comptes déjà présents (bascule). Idempotent sans cette option :
+ * un identifiant présent n'est ni modifié ni réinitialisé. Pour chaque personne, le drive passe
+ * d'abord ; refus du drive ⇒ rien n'est changé pour elle. Les mots de passe vont UNIQUEMENT dans
+ * la fiche (fichier 0600, créé sans écraser), jamais dans le rapport ni le journal.
  */
 export async function migrateAccounts(
   specs: PlannedAccount[],
-  opts: { apply: boolean; sheetPath?: string; siteUrl?: string },
+  opts: { apply: boolean; sheetPath?: string; siteUrl?: string; driveUrl?: string; resetExisting?: boolean },
 ): Promise<AccountsReport> {
-  const existingIds = new Set((await listUsers()).map((u: HubUser) => u.identifier));
-  const report: AccountsReport = { created: [], existing: [] };
+  const users = await listUsers();
+  const byId = new Map(users.map((u) => [u.identifier, u]));
+  const sync = driveSyncEnabled();
+  const report: AccountsReport = {
+    created: [],
+    reset: [],
+    existing: [],
+    drive: sync ? { created: [], attached: [] } : null,
+    failed: [],
+  };
   const todo = specs.filter((s) => {
-    if (existingIds.has(s.identifier)) {
+    if (byId.has(s.identifier) && !opts.resetExisting) {
       report.existing.push(s.identifier);
       return false;
     }
     return true;
   });
   if (!opts.apply) {
-    report.created = todo.map((s) => ({ identifier: s.identifier, role: s.role }));
+    for (const s of todo) {
+      if (byId.has(s.identifier)) report.reset.push(s.identifier);
+      else report.created.push({ identifier: s.identifier, role: s.role });
+      if (report.drive) {
+        try {
+          (await findDriveAccount(s.driveLogin) ? report.drive.attached : report.drive.created).push(s.driveLogin);
+        } catch (e) {
+          report.failed.push({ identifier: s.identifier, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+    }
     return report;
   }
   if (todo.length === 0) return report;
@@ -113,13 +152,41 @@ export async function migrateAccounts(
   const fh = await fs.open(opts.sheetPath, "wx", 0o600);
   try {
     for (const s of todo) {
-      const { user, temporaryPassword } = await createUser(
-        { displayName: s.displayName, identifier: s.identifier, role: s.role, rights: s.rights },
-        { actor: "migration" },
-      );
-      // Écriture immédiate : un arrêt en cours de route ne perd aucun mot de passe déjà créé.
-      await fh.appendFile(`${sheetBlock({ displayName: user.displayName, identifier: user.identifier, password: temporaryPassword! }, opts.siteUrl ?? "https://succieu.fr")}\f\n`);
-      report.created.push({ identifier: user.identifier, role: user.role });
+      const known = byId.get(s.identifier);
+      const login = known ? driveLoginOf(known) : s.driveLogin;
+      const password = generatePassword();
+      let driveState: "created" | "attached" | undefined;
+      try {
+        if (sync) driveState = await ensureDriveAccount(login, known?.displayName ?? s.displayName, password);
+        const by = { actor: "migration" };
+        const user = known
+          ? await setPassword(known.id, password, by)
+          : (
+              await createUser(
+                {
+                  displayName: s.displayName,
+                  identifier: s.identifier,
+                  role: s.role,
+                  rights: s.rights,
+                  driveLogin: s.driveLogin,
+                  password,
+                  driveSync: sync ? { at: new Date().toISOString() } : undefined,
+                },
+                by,
+              )
+            ).user;
+        if (known && sync) await setDriveState(known.id, { driveSync: { at: new Date().toISOString() } }, by);
+        // Écriture immédiate : un arrêt en cours de route ne perd aucun mot de passe déjà posé.
+        await fh.appendFile(
+          `${sheetBlock({ displayName: user.displayName, identifier: user.identifier, password, driveLogin: login }, opts.siteUrl ?? "https://succieu.fr", sync ? opts.driveUrl : undefined)}\f\n`,
+        );
+        if (known) report.reset.push(s.identifier);
+        else report.created.push({ identifier: s.identifier, role: s.role });
+        if (driveState) report.drive![driveState === "created" ? "created" : "attached"].push(login);
+      } catch (e) {
+        if (!(e instanceof AppError) || e.code !== "drive_sync_failed") throw e;
+        report.failed.push({ identifier: s.identifier, error: e.message });
+      }
     }
   } finally {
     await fh.close();
@@ -129,9 +196,15 @@ export async function migrateAccounts(
 
 export function formatAccountsReport(r: AccountsReport, apply: boolean): string {
   const head = apply ? "Comptes — création" : "Comptes — simulation (rien n'est écrit)";
+  const list = (a: string[]) => (a.length ? ` (${a.join(", ")})` : "");
   return [
     head,
-    `  ${apply ? "créés" : "à créer"} : ${r.created.length}${r.created.length ? ` (${r.created.map((c) => `${c.identifier}/${c.role}`).join(", ")})` : ""}`,
-    `  déjà présents (inchangés) : ${r.existing.length}${r.existing.length ? ` (${r.existing.join(", ")})` : ""}`,
+    `  ${apply ? "créés" : "à créer"} : ${r.created.length}${list(r.created.map((c) => `${c.identifier}/${c.role}`))}`,
+    ...(r.reset.length ? [`  mot de passe ${apply ? "réinitialisé" : "à réinitialiser"} : ${r.reset.length}${list(r.reset)}`] : []),
+    `  déjà présents (inchangés) : ${r.existing.length}${list(r.existing)}`,
+    r.drive
+      ? `  drive : ${apply ? "créés" : "à créer"} ${r.drive.created.length}${list(r.drive.created)}, ${apply ? "rattachés" : "à rattacher"} ${r.drive.attached.length}${list(r.drive.attached)}`
+      : "  drive : synchro désactivée (DRIVE_URL / DRIVE_ADMIN_USER / DRIVE_ADMIN_PASSWORD absents)",
+    ...(r.failed.length ? [`  ÉCHECS (inchangés) : ${r.failed.length}`, ...r.failed.map((f) => `    ${f.identifier} : ${f.error}`)] : []),
   ].join("\n");
 }

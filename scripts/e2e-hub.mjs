@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Parcours complet du hub sur les VRAIES routes HTTP (aucun navigateur, aucune dépendance) :
-// admin crée un compte, connexion avec le provisoire, changement forcé, droits lecture/écriture
+// admin crée un compte avec mot de passe attribué, connexion directe, droits lecture/écriture
 // par module, reset. Serveur `next start` éphémère sur un port libre, DATA_DIR temporaire,
 // comptes fictifs ; le serveur est arrêté et les données effacées en toute circonstance.
 // Prérequis : `next build` fait. Usage : node scripts/e2e-hub.mjs
@@ -17,7 +17,7 @@ const ADMIN_PW = "admin-e2e-fictif-123";
 execFileSync("node", ["scripts/hub-create-admin.mjs", "admin", "Admin Fictif"], { input: ADMIN_PW, env: { ...process.env, DATA_DIR: dataDir } });
 
 const server = spawn("npx", ["next", "start", "-p", PORT, "-H", "127.0.0.1"], {
-  env: { ...process.env, NODE_ENV: "production", DATA_DIR: dataDir, SESSION_SECRET: "e2e-session-secret-fictif-0123456789abcdef", REVIEW_API_TOKEN: "e2e-review-token-fictif-0123456789", SITE_ORIGINS: BASE },
+  env: { ...process.env, NODE_ENV: "production", DATA_DIR: dataDir, DRIVE_URL: "", DRIVE_ADMIN_USER: "", DRIVE_ADMIN_PASSWORD: "", SESSION_SECRET: "e2e-session-secret-fictif-0123456789abcdef", REVIEW_API_TOKEN: "e2e-review-token-fictif-0123456789", SITE_ORIGINS: BASE },
   stdio: "ignore",
   detached: true,
 });
@@ -69,20 +69,17 @@ try {
     assert.equal(l.status, 200); admin = l.cookie;
     const c = await req("POST", "/api/admin/users", { cookie: admin, body: { displayName: "Camille Fictive", rights: { documents: "read" } } });
     assert.equal(c.status, 201);
-    tmp = c.json.temporaryPassword; camille = c.json.user.id;
+    tmp = c.json.password; assert.equal(c.json.drive.status, "disabled"); camille = c.json.user.id;
     assert.match(tmp, /^[a-z2-9]{4}(-[a-z2-9]{4}){2}$/);
   });
   let cookie;
-  await step("provisoire : connexion, modules refusés, changement forcé", async () => {
+  await step("mot de passe attribué : connexion directe, plus de changement par l'utilisateur", async () => {
     const l = await req("POST", "/api/hub/login", { body: { identifier: "camille", password: tmp } });
-    assert.equal(l.status, 200); assert.equal(l.json.mustChangePassword, true); cookie = l.cookie;
-    assert.equal((await req("GET", "/api/bureau/submissions", { cookie })).json.error.code, "password_change_required");
+    assert.equal(l.status, 200); assert.equal(l.json.mustChangePassword, undefined); cookie = l.cookie;
     assert.equal((await req("GET", "/api/hub/session", { cookie })).status, 200);
-    assert.equal((await req("POST", "/api/hub/password", { cookie, body: { oldPassword: "faux", newPassword: "nouveau-mdp-fictif-1" } })).status, 401);
-    const p = await req("POST", "/api/hub/password", { cookie, body: { oldPassword: tmp, newPassword: "nouveau-mdp-fictif-1" } });
-    assert.equal(p.status, 200); assert.equal(p.json.mustChangePassword, false);
-    assert.equal((await req("GET", "/api/hub/session", { cookie })).status, 401, "ancienne session invalidée");
-    cookie = p.cookie;
+    assert.equal((await req("GET", "/api/bureau/submissions", { cookie })).json.error.code, "forbidden"); // plus de garde « changement imposé »
+    assert.equal((await req("POST", "/api/hub/password", { cookie, body: { oldPassword: tmp, newPassword: "nouveau-mdp-fictif-1" } })).status, 404, "route supprimée");
+    assert.equal((await req("GET", "/espace-bureau/nouveau-mot-de-passe", { cookie })).status, 404, "écran supprimé");
   });
   await step("droits par module et administration", async () => {
     assert.equal((await req("GET", "/api/bureau/submissions", { cookie })).json.error.code, "forbidden"); // pas de droit actus-agenda
@@ -93,13 +90,13 @@ try {
     assert.equal((await req("GET", "/api/salle-des-fetes/reservations", { cookie })).status, 200);
     assert.equal((await req("GET", "/api/salle-des-fetes/audit", { cookie })).status, 200);
   });
-  await step("reset : session invalidée, nouveau provisoire, changement forcé", async () => {
-    const r = await req("POST", `/api/admin/users/${camille}/reset-password`, { cookie: admin });
+  await step("reset : session invalidée, nouveau mot de passe attribué", async () => {
+    const r = await req("POST", `/api/admin/users/${camille}/reset-password`, { cookie: admin, body: { passwordMode: "custom", password: "nouveau-mdp-fictif-1" } });
     assert.equal(r.status, 200);
     assert.equal((await req("GET", "/api/hub/session", { cookie })).status, 401);
-    assert.equal((await req("POST", "/api/hub/login", { body: { identifier: "camille", password: "nouveau-mdp-fictif-1" } })).status, 401);
-    const l = await req("POST", "/api/hub/login", { body: { identifier: "camille", password: r.json.temporaryPassword } });
-    assert.equal(l.json.mustChangePassword, true);
+    assert.equal((await req("POST", "/api/hub/login", { body: { identifier: "camille", password: tmp } })).status, 401, "ancien refusé");
+    assert.equal(r.json.password, "nouveau-mdp-fictif-1");
+    assert.equal((await req("POST", "/api/hub/login", { body: { identifier: "camille", password: r.json.password } })).status, 200);
   });
   await step("déconnexion", async () => {
     assert.equal((await req("POST", "/api/hub/logout", { cookie: admin })).status, 200);

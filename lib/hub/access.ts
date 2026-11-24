@@ -2,12 +2,9 @@ import { AppError } from "../content/errors";
 import { effectiveRights, hasAccess, type HubUser } from "./users";
 import { HUB_MODULES, type AccessLevel, type HubModule, type ModuleId } from "./modules";
 
-/** Contrôle de session + mustChangePassword, sans accès aux cookies (testable). */
-export function checkUser(user: HubUser | null, opts: { allowPasswordChange?: boolean } = {}): HubUser {
+/** Contrôle de session, sans accès aux cookies (testable). */
+export function checkUser(user: HubUser | null): HubUser {
   if (!user) throw new AppError("unauthorized", "Connexion requise.");
-  if (user.mustChangePassword && !opts.allowPasswordChange) {
-    throw new AppError("password_change_required", "Vous devez d'abord changer votre mot de passe.");
-  }
   return user;
 }
 

@@ -10,12 +10,9 @@ async function current(): Promise<HubUser | null> {
   return resolveHubUser(jar.get(HUB_COOKIE)?.value);
 }
 
-/**
- * Utilisateur connecté. Refuse (403 password_change_required) tant que le mot
- * de passe est provisoire, sauf `allowPasswordChange` (session, password, logout).
- */
-export async function requireUser(opts: { allowPasswordChange?: boolean } = {}): Promise<HubUser> {
-  return checkUser(await current(), opts);
+/** Utilisateur connecté (401 sinon). */
+export async function requireUser(): Promise<HubUser> {
+  return checkUser(await current());
 }
 
 export async function requireAdmin(): Promise<HubUser> {

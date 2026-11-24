@@ -7,10 +7,18 @@ export type AdminUser = {
   displayName: string;
   role: "admin" | "membre";
   active: boolean;
-  mustChangePassword: boolean;
+  driveLogin: string;
+  driveSync?: { at?: string; error?: string };
   rights: Rights;
   lastLogin: string | null;
 };
+export type DriveRow = {
+  driveLogin: string;
+  hub: { id: string; identifier: string; displayName: string; active: boolean } | null;
+  drive: { displayName: string; enabled: boolean | null } | null;
+  status: "ok" | "drive-sans-hub" | "hub-sans-drive" | "desactive-hub-seulement" | "desactive-drive-seulement";
+};
+export type DriveOutcome = { status: "disabled" | "created" | "attached" | "updated" | "error"; error?: string };
 export type AuditLine = { date: string; actor: string; action: string; detail?: string; ip?: string };
 
 export class ApiError extends Error {
@@ -43,13 +51,15 @@ export const ACTION_LABEL: Record<string, string> = {
   "login.ok": "Connexion",
   "login.failed": "Échec de connexion",
   "login.blocked": "Connexion bloquée (trop d'essais)",
-  "password.failed": "Échec de changement de mot de passe",
   "user.create": "Compte créé",
   "user.update": "Rôle ou droits modifiés",
   "user.enable": "Compte réactivé",
   "user.disable": "Compte désactivé",
   "user.reset-password": "Mot de passe réinitialisé",
-  "user.change-password": "Mot de passe changé",
+  "user.drive-sync": "Synchronisation drive",
+  "user.drive-login": "Identifiant drive modifié",
+  "user.drive-attach": "Compte rattaché au drive",
+  "hub.migrate.accounts": "Migration des comptes",
 };
 
 export function formatDate(iso: string | null): string {

@@ -9,7 +9,6 @@ import {
   effectiveRights,
   getUserByIdentifier,
   normalizeIdentifier,
-  setOwnPassword,
   type HubUser,
 } from "./users";
 
@@ -22,7 +21,6 @@ export function sessionBody(u: HubUser) {
     user: { id: u.id, identifier: u.identifier, displayName: u.displayName },
     role: u.role,
     rights: effectiveRights(u),
-    mustChangePassword: u.mustChangePassword,
   };
 }
 
@@ -58,36 +56,4 @@ export async function hubLogin(
   clearFailures(keys[1]);
   await audit({ actor: user.identifier, action: "login.ok", ip });
   return { user, token: createHubToken(user) };
-}
-
-/** POST /api/hub/password : ancien + nouveau ; ouvre une nouvelle session (la version change). */
-export async function hubChangePassword(
-  req: Request,
-  user: HubUser,
-  body: unknown,
-): Promise<{ user: HubUser; token: string }> {
-  assertSameOrigin(req);
-  const { oldPassword, newPassword } = (body ?? {}) as { oldPassword?: unknown; newPassword?: unknown };
-  const ip = clientIp(req.headers);
-  const key = `hub-pw:${user.id}`;
-  const wait = retryAfter(key);
-  if (wait > 0) throw new AppError("rate_limited", "Trop de tentatives, réessayez plus tard.", { retryAfter: wait });
-  const oldOk =
-    typeof oldPassword === "string" &&
-    oldPassword.length > 0 &&
-    oldPassword.length <= MAX_PASSWORD_LENGTH &&
-    (await verifyPassword(oldPassword, user.passwordHash));
-  if (!oldOk) {
-    recordFailure(key);
-    await audit({ actor: user.identifier, action: "password.failed", ip });
-    throw new AppError("unauthorized", "Ancien mot de passe incorrect.");
-  }
-  clearFailures(key);
-  if (newPassword === oldPassword) {
-    throw new AppError("validation_failed", "Le nouveau mot de passe doit être différent.", {
-      fields: { newPassword: "Identique à l'ancien." },
-    });
-  }
-  const updated = await setOwnPassword(user.id, newPassword as string, { actor: user.identifier, ip });
-  return { user: updated, token: createHubToken(updated) };
 }

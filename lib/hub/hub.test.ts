@@ -8,14 +8,14 @@ import { AppError } from "../content/errors";
 import { resetRateLimits } from "../auth/rate-limit";
 import { verifyPassword } from "../auth/password";
 import { allowedModules, checkAdmin, checkModule, checkUser } from "./access";
-import { hubChangePassword, hubLogin } from "./auth";
+import { hubLogin } from "./auth";
 import { createHubToken, resolveHubUser, sessionSeconds, verifyHubToken } from "./session";
 import {
   createUser,
   getUserById,
   getUserByIdentifier,
   listUsers,
-  resetPassword,
+  setPassword,
   setActive,
   updateRoleAndRights,
 } from "./users";
@@ -55,14 +55,14 @@ async function code(p: Promise<unknown>): Promise<string> {
 async function seed() {
   const admin = await createUser({ displayName: "Éloïse Test", role: "admin", password: "mot-de-passe-admin" }, BY);
   const membre = await createUser({ displayName: "Alice Test", rights: { documents: "read" } }, BY);
-  return { admin: admin.user, membre: membre.user, temp: membre.temporaryPassword! };
+  return { admin: admin.user, membre: membre.user, temp: membre.password };
 }
 
 test("création : identifiant sans accent, unique, mot de passe provisoire lisible", async () => {
   const { admin, membre, temp } = await seed();
   assert.equal(admin.identifier, "eloise");
   assert.equal(membre.identifier, "alice");
-  assert.equal(membre.mustChangePassword, true);
+  assert.equal("mustChangePassword" in membre, false);
   assert.match(temp, /^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
   assert.equal(await code(createUser({ displayName: "Alice Autre" }, BY)), "validation_failed");
   const stored = await getUserByIdentifier("ALICE");
@@ -101,36 +101,36 @@ test("session invalidée : compte désactivé ou mot de passe changé", async ()
   assert.equal(await resolveHubUser(token), null, "désactivé");
   await setActive(membre.id, true, BY);
   assert.ok(await resolveHubUser(token), "réactivé : même version");
-  await resetPassword(membre.id, BY);
+  await setPassword(membre.id, "nouveau-mot-de-passe", BY);
   assert.equal(await resolveHubUser(token), null, "mot de passe réinitialisé");
 });
 
-test("mustChangePassword : requireUser refuse, session/password autorisés, puis levé", async () => {
-  const { temp } = await seed();
+test("mot de passe attribué : connexion directe, aucune garde de changement, ancien champ ignoré", async () => {
+  const { membre, temp } = await seed();
   const { user, token } = await hubLogin(req(), "alice", temp);
-  assert.equal(user.mustChangePassword, true);
-  assert.equal(await code(Promise.resolve().then(() => checkUser(user))), "password_change_required");
-  assert.equal(checkUser(user, { allowPasswordChange: true }).id, user.id);
-  assert.equal(await code(Promise.resolve().then(() => checkModule(user, "documents", "read"))), "password_change_required");
-  assert.equal(await code(Promise.resolve().then(() => checkAdmin(user))), "password_change_required");
-
-  assert.equal(await code(hubChangePassword(req(), user, { oldPassword: "faux", newPassword: "nouveau-mot-de-passe" })), "unauthorized");
-  assert.equal(await code(hubChangePassword(req(), user, { oldPassword: temp, newPassword: "court" })), "validation_failed");
-  assert.equal(await code(hubChangePassword(req(), user, { oldPassword: temp, newPassword: temp })), "validation_failed");
-  const changed = await hubChangePassword(req(), user, { oldPassword: temp, newPassword: "nouveau-mot-de-passe" });
-  assert.equal(changed.user.mustChangePassword, false);
-  assert.equal(await resolveHubUser(token), null, "ancienne session invalidée");
-  const fresh = await resolveHubUser(changed.token);
-  assert.ok(fresh);
-  assert.equal(checkUser(fresh).id, user.id);
-  assert.equal(await code(hubLogin(req(), "alice", temp)), "unauthorized");
-  assert.ok(await hubLogin(req(), "alice", "nouveau-mot-de-passe"));
+  assert.equal(checkUser(user).id, user.id);
+  assert.equal(checkModule(user, "documents", "read").id, user.id);
+  assert.ok(await resolveHubUser(token));
+  // un users.json ancien porte encore mustChangePassword : le compte n'est pas bloqué et le champ disparaît.
+  const file = path.join(dir, "users.json");
+  const raw = JSON.parse(await fs.readFile(file, "utf8"));
+  raw.find((u: { id: string }) => u.id === membre.id).mustChangePassword = true;
+  await fs.writeFile(file, JSON.stringify(raw));
+  const legacy = (await getUserById(membre.id))!;
+  assert.equal("mustChangePassword" in legacy, false);
+  assert.ok(await hubLogin(req("2.2.2.2"), "alice", temp));
+  const set = await setPassword(membre.id, "mot-de-passe-attribue", BY);
+  assert.equal("mustChangePassword" in set, false);
+  assert.ok(!(await fs.readFile(file, "utf8")).includes("mustChangePassword"), "retiré du fichier à la prochaine écriture");
+  assert.equal(await resolveHubUser(token), null, "sessions fermées au changement de mot de passe");
+  assert.equal(await code(setPassword(membre.id, "court", BY)), "validation_failed");
+  assert.ok(await hubLogin(req("2.2.2.3"), "alice", "mot-de-passe-attribue"));
 });
 
 test("droits : none/read/write, admin = tout, 401/403", async () => {
   const { admin, membre } = await seed();
   const a = (await getUserById(admin.id))!;
-  const m = { ...(await getUserById(membre.id))!, mustChangePassword: false };
+  const m = (await getUserById(membre.id))!;
   assert.equal(await code(Promise.resolve().then(() => checkUser(null))), "unauthorized");
   assert.equal(checkModule(m, "documents", "read").id, m.id);
   assert.equal(await code(Promise.resolve().then(() => checkModule(m, "documents", "write"))), "forbidden");
@@ -176,12 +176,12 @@ test("dernier admin : ni désactivation, ni rétrogradation", async () => {
   assert.equal(await code(setActive(membre.id, false, BY)), "ok");
 });
 
-test("réinitialisation : provisoire lisible, mustChangePassword", async () => {
+test("réinitialisation : mot de passe saisi, 10 caractères minimum, inconnu refusé", async () => {
   const { membre } = await seed();
-  const r = await resetPassword(membre.id, BY);
-  assert.match(r.temporaryPassword, /^[a-z2-9]{4}(-[a-z2-9]{4}){2}$/);
-  assert.equal(r.user.mustChangePassword, true);
-  assert.equal(await code(resetPassword("inconnu", BY)), "not_found");
+  const r = await setPassword(membre.id, "mot-de-passe-saisi", BY);
+  assert.equal(r.id, membre.id);
+  assert.ok(await verifyPassword("mot-de-passe-saisi", (await getUserById(membre.id))!.passwordHash));
+  assert.equal(await code(setPassword("inconnu", "mot-de-passe-saisi", BY)), "not_found");
 });
 
 test("journal d'audit : sans mot de passe ni empreinte", async () => {
@@ -205,7 +205,6 @@ test("CLI hub-create-admin : crée un admin avec mot de passe sur stdin", async 
   assert.match(out, /zoe/);
   const u = (await listUsers()).find((x) => x.identifier === "zoe");
   assert.equal(u?.role, "admin");
-  assert.equal(u?.mustChangePassword, false);
   assert.ok(await verifyPassword("un-mot-de-passe-long", u!.passwordHash));
 });
 
