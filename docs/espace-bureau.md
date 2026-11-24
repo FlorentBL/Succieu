@@ -1,4 +1,4 @@
-# Espace bureau — contrat technique (socle)
+# Espace bureau — contrat technique
 
 Le bureau municipal soumet des actualités (carrousel d'accueil) et des rendez-vous (agenda). Un agent Timon relit chaque saisie (avis + version corrigée), puis Florent (admin) publie ou rejette. Ce document fixe le contrat utilisé par les volets interface, relecture agent et pages publiques. Seuls `lib/`, `app/api/`, `scripts/` et la doc sont fournis ici : aucune page d'interface.
 
@@ -9,19 +9,17 @@ Voir `.env.example`. Aucun secret dans le dépôt.
 | Variable | Rôle |
 |---|---|
 | `DATA_DIR` | Dossier des données hors build. Défaut `./data` (dev, ignoré par git) ; prod `/var/lib/succieu-web` (propriétaire `loic`). |
-| `BUREAU_PASSWORD_HASH` | Empreinte scrypt du mot de passe commun du bureau. |
-| `ADMIN_PASSWORD_HASH` | Empreinte scrypt du mot de passe admin (Florent). |
 | `SESSION_SECRET` | Clé HMAC des sessions, 32 caractères minimum. |
 | `REVIEW_API_TOKEN` | Jeton Bearer de l'agent de relecture, 24 caractères minimum. |
 | `HUB_SESSION_HOURS` | Facultatif : durée de la session du hub en heures (défaut 2160 = 90 jours). |
 | `SITE_ORIGINS` | Facultatif : origines supplémentaires acceptées pour les écritures (séparées par des virgules). |
 
-Générer une empreinte : `node scripts/hash-password.mjs` (saisie masquée, ou mot de passe sur l'entrée standard). Format : `scrypt$N$r$p$sel(base64)$empreinte(base64)`. Les `$` doivent être échappés dans un `.env` lu par Next (`\$`) ou la valeur mise entre apostrophes dans un `EnvironmentFile` systemd. Une variable manquante renvoie `server_misconfigured`.
+Les anciennes variables `BUREAU_PASSWORD_HASH` et `ADMIN_PASSWORD_HASH` (mots de passe communs) sont **supprimées** : la connexion passe par les comptes individuels du hub. Elles peuvent être retirées de l'environnement du service. Empreinte scrypt (utilitaire) : `node scripts/hash-password.mjs` (saisie masquée, ou mot de passe sur l'entrée standard). Format : `scrypt$N$r$p$sel(base64)$empreinte(base64)`. Les `$` doivent être échappés dans un `.env` lu par Next (`\$`) ou la valeur mise entre apostrophes dans un `EnvironmentFile` systemd. Une variable de session ou de relecture manquante renvoie `server_misconfigured`.
 
 ## Stockage (`DATA_DIR`)
 
 - `articles.json`, `events.json` : tableaux de saisies.
-- `bureau.json` : tableau de noms (`["Prénom Nom", ...]`), éditable à la main ; modèle fictif dans `data.example/bureau.json`. Un nom retiré perd l'accès immédiatement.
+- `users.json` : comptes du hub. `bureau.json` (anciens noms) n'est plus lu : il est conservé tel quel, lisible, pour la migration des comptes (les `author` déjà enregistrés restent de simples libellés texte).
 - `uploads/` : images (`<32 hex>.jpg|png|webp`).
 - Écriture atomique (fichier temporaire + `rename`) ; verrou : file d'attente par processus + fichier `.lock` (`O_EXCL`, périmé après 15 s).
 
@@ -35,20 +33,20 @@ Champs événement : `title` (≤ 90), `date` (AAAA-MM-JJ), `startTime?`, `endTi
 
 Images : jpeg/png/webp en entrée (type vérifié par signature), plafond technique 40 Mo. Chaque image est redressée (EXIF), réduite à 2 000 px de côté maximum, convertie en WebP qualité 80 sans métadonnées (GPS supprimé) par sharp, renommée aléatoirement (`<hex>.webp`) et servie par `GET /api/uploads/<nom>`. Les anciens noms `.jpg`/`.png` restent lisibles. En production, nginx doit accepter ces envois : `client_max_body_size 41m;` sur succieu.fr.
 
-Transitions (`lib/content/transitions.ts`) : `submitted → reviewed` (agent) ; `submitted|reviewed → published|rejected` (admin) ; `published` et `rejected` sont terminaux. Publier `"corrected"` exige un avis. Chaque transition ajoute une entrée d'historique (`by` : nom du bureau, `agent`, `admin`).
+Transitions (`lib/content/transitions.ts`) : `submitted → reviewed` (agent) ; `submitted|reviewed → published|rejected` (admin) ; `published` et `rejected` sont terminaux. Publier `"corrected"` exige un avis. Chaque transition ajoute une entrée d'historique (`by` : nom affiché du compte, `agent`, `admin`).
 
 Fonctions serveur réutilisables (`lib/content/store.ts`) : `getPublishedArticles(limit?)` (récentes d'abord, dates futures masquées), `getUpcomingEvents(from = aujourd'hui Paris)` (chronologique). Elles lisent le disque à chaque appel : les pages qui les utilisent doivent être dynamiques ou revalidées (la publication appelle `revalidatePath("/", "layout")`).
 
 ## Authentification
 
-- Bureau, en deux étapes : `POST /api/bureau/login` avec le mot de passe commun seul (session sans nom), puis `POST /api/bureau/identity` avec un nom de `bureau.json` (la session porte alors ce nom ; « changer » refait cette étape). La liste des noms n'est visible qu'après le mot de passe. Saisies et historique exigent un nom. Admin : mot de passe seul.
-- Cookies `succieu_bureau` / `succieu_admin` : jeton `base64url(JSON).HMAC-SHA256`, httpOnly, `Secure` en production, `SameSite=Strict`, 8 h.
-- Toute requête qui écrit (POST) doit porter `Origin` (ou `Referer`) identique à l'hôte du site (`Host`/`X-Forwarded-Host`) ou listé dans `SITE_ORIGINS`, sinon `bad_origin`. Les routes de relecture agent (Bearer) n'utilisent pas de cookie et sont exemptées.
-- Connexion : 5 échecs / 15 min par IP (en mémoire, par processus) puis `rate_limited` avec `Retry-After`.
+Toute session humaine est celle du hub (section suivante) : cookie `succieu_hub`, comptes individuels. Les anciens cookies `succieu_bureau` / `succieu_admin`, la connexion par mot de passe commun et le choix du nom dans une liste sont **supprimés**. L'auteur d'une saisie est le `displayName` du compte connecté.
+
+- Toute requête qui écrit (POST) doit porter `Origin` (ou `Referer`) identique à l'hôte du site (`Host`/`X-Forwarded-Host`) ou listé dans `SITE_ORIGINS`, sinon `bad_origin`. Les routes de relecture agent (Bearer `REVIEW_API_TOKEN`) n'utilisent pas de cookie et sont exemptées.
+- Droits du module `actus-agenda` : `read` = voir ses saisies et l'historique ; `write` = soumettre (et téléverser une image) ; modération (publier / rejeter, liste complète) = rôle `admin` (`requireAdmin`).
 
 ## Authentification du hub (comptes individuels)
 
-Le hub `/espace-bureau` remplace à terme les mots de passe communs ci-dessus (qui restent en place tant que le volet 4 ne les a pas remplacés). Code : `lib/hub/`.
+Le hub `/espace-bureau` a remplacé les anciens mots de passe communs. Code : `lib/hub/`.
 
 - **Comptes** : `DATA_DIR/users.json` (écriture atomique + verrou). Champs : `id` stable, `identifier` (prénom en minuscules sans accent, unique ; la saisie à la connexion est normalisée), `displayName`, `role` (`admin` | `membre`), `active`, `passwordHash` (scrypt, `lib/auth/password.ts`), `passwordVersion`, `mustChangePassword`, `rights`, `createdAt`, `updatedAt`.
 - **Droits** : `{ "actus-agenda" | "espace-bureau" | "salle-des-fetes" | "documents": "none" | "read" | "write" }` ; un module absent vaut `none` ; un admin a `write` partout. Registre des modules (id, libellé, chemin, description) : `lib/hub/modules.ts`, unique endroit à compléter par les volets suivants.
@@ -85,7 +83,7 @@ Logique : `lib/hub/admin.ts` (testée dans `lib/hub/admin.test.ts`) ; composants
 | `POST /api/admin/users/<id>/reset-password` | → `{ user, temporaryPassword }` (une seule fois). |
 | `GET /api/admin/audit?person=&limit=` | `{ entries }` du journal `hub-audit.jsonl`, plus récentes d'abord (limite 500). |
 
-Les routes `/api/admin/login|logout|session|submissions*` restent celles de la modération (mot de passe admin commun).
+Les routes `/api/admin/submissions*` sont celles de la modération (session hub, rôle admin) ; `/api/admin/login|logout|session` n'existent plus.
 
 ## Coquille du hub (`/espace-bureau`)
 
@@ -99,8 +97,8 @@ Pages, toutes `noindex` (layout `app/espace-bureau/layout.tsx`), hors sitemap, `
 | `/espace-bureau/compte` | `(hub)/compte/page.tsx` | Changer son mot de passe, taille du texte, se déconnecter. |
 | `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; console de gestion des comptes (`components/hub-admin/`). `/espace-bureau/admin` y redirige. |
 | `/espace-bureau/<chemin du module>` | `(hub)/[module]/page.tsx` | Emplacement provisoire des modules sans page propre. |
-| `/espace-bureau/actualites` | `actualites/page.tsx` | Ancienne interface des actus (mots de passe communs), **déplacée telle quelle** ; le volet 4 la migre. Hors du groupe `(hub)`, donc sans la coquille. |
-| `/espace-bureau/moderation` | `moderation/` | Inchangé (session admin historique), hors coquille. |
+| `/espace-bureau/actualites` | `(hub)/actualites/page.tsx` | Module Actualités & agenda (`actus-agenda`) : saisie et historique. |
+| `/espace-bureau/actualites/moderation[/<id>]` | `(hub)/actualites/moderation/` | Modération, admin seulement (les autres sont renvoyés au module). Anciennes URL `/espace-bureau/moderation*` : redirection 308 (`next.config.ts`). |
 
 Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exige une session (`requireHubPageUser` : sinon redirection vers la connexion ou vers le changement de mot de passe), puis affiche `HubNav` (`components/hub/HubNav.tsx`) : Accueil, modules autorisés (niveau ≥ lecture, ordre du registre), Administration (admin), Mon compte, taille du texte. Sur un module en lecture seule, un bandeau jaune « Lecture seule » s'affiche. Le layout ne protège pas les données : chaque page de module appelle sa propre garde.
 
@@ -127,20 +125,13 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 | Méthode et chemin | Accès | Description |
 |---|---|---|
-| `GET /api/bureau/names` | bureau (mot de passe) | `{ names }` pour le choix du nom. |
-| `POST /api/bureau/login` | public | `{ password }` → `{ ok, role, name: "" }` + cookie (session sans nom). |
-| `POST /api/bureau/identity` | bureau (mot de passe) + origine | `{ name }` (présent dans `bureau.json`) → `{ ok, name }` + cookie nommé ; 422 si nom inconnu. |
-| `POST /api/bureau/logout` | origine | Efface le cookie. |
-| `GET /api/bureau/session` | public | `{ authenticated, name }` ; `name` = null tant que le nom n'est pas choisi. |
-| `POST /api/bureau/uploads` | bureau | multipart, champ `file` → 201 `{ image, url }` ; `image` à placer dans `fields.image`. |
-| `GET /api/bureau/submissions` | bureau | `{ submissions }` : toutes les saisies de l'auteur (statut, avis, motif). |
-| `POST /api/bureau/submissions` | bureau | `{ kind, fields }` → 201 `{ submission }` (statut `submitted`). |
-| `POST /api/admin/login` | public | `{ password }`. |
-| `POST /api/admin/logout`, `GET /api/admin/session` | — | Idem bureau (`{ authenticated }`). |
-| `GET /api/admin/submissions` | admin | `?status=submitted,reviewed` (défaut : en attente) → `{ submissions }`. |
-| `GET /api/admin/submissions/<id>` | admin | `{ submission }`. |
-| `POST /api/admin/submissions/<id>/publish` | admin | `{ version: "original"\|"corrected" }` ; revalide les pages. |
-| `POST /api/admin/submissions/<id>/reject` | admin | `{ reason }` obligatoire (≤ 500). |
+| `POST /api/bureau/uploads` | module `actus-agenda` en écriture | multipart, champ `file` → 201 `{ image, url }` ; `image` à placer dans `fields.image`. |
+| `GET /api/bureau/submissions` | module `actus-agenda` en lecture | `{ submissions }` : toutes les saisies de l'auteur (`displayName`) : statut, avis, motif. |
+| `POST /api/bureau/submissions` | module `actus-agenda` en écriture + origine | `{ kind, fields }` → 201 `{ submission }` (statut `submitted`, auteur = nom affiché du compte). |
+| `GET /api/admin/submissions` | admin hub | `?status=submitted,reviewed` (défaut : en attente) → `{ submissions }`. |
+| `GET /api/admin/submissions/<id>` | admin hub | `{ submission }`. |
+| `POST /api/admin/submissions/<id>/publish` | admin hub + origine | `{ version: "original"\|"corrected" }` ; revalide les pages. |
+| `POST /api/admin/submissions/<id>/reject` | admin hub + origine | `{ reason }` obligatoire (≤ 500). |
 | `GET /api/review/submissions` | Bearer | Saisies au statut `submitted`. |
 | `GET /api/review/submissions/<id>` | Bearer | `{ submission }`. |
 | `POST /api/review/submissions/<id>` | Bearer | `{ ok, issues[], corrected, summary }` → statut `reviewed` ; `corrected` = mêmes champs que `original`, validés. |
@@ -153,7 +144,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | Code | HTTP | Cas |
 |---|---|---|
 | `invalid_json` | 400 | Corps non JSON. |
-| `unauthorized` | 401 | Pas de session / mauvais mot de passe ou jeton. |
+| `unauthorized` | 401 | Pas de session hub / jeton de relecture invalide. |
 | `forbidden` | 403 | Réservé. |
 | `bad_origin` | 403 | Origine refusée sur une écriture. |
 | `not_found` | 404 | Saisie ou image introuvable. |
@@ -162,7 +153,7 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 | `unsupported_media` | 415 | Image non jpeg/png/webp. |
 | `validation_failed` | 422 | Champs invalides : `error.fields` = `{ champ: message lisible }` (avis : `corrected.<champ>`). |
 | `password_change_required` | 403 | Hub : mot de passe provisoire à changer avant toute autre action. |
-| `rate_limited` | 429 | Trop de tentatives de connexion (`Retry-After`). |
+| `rate_limited` | 429 | Trop de tentatives de connexion au hub (`Retry-After`). |
 | `server_misconfigured` | 500 | Variable d'environnement manquante ou trop courte. |
 | `server_error` | 500 | Erreur imprévue. |
 
@@ -174,12 +165,12 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 `/` (carrousel : 4 dernières actualités, complétées par `lib/homeSpotlight.ts` ; bande « Prochains rendez-vous »), `/actualites`, `/actualites/<id>`, `/agenda`, `/agenda/passes`. Logique dans `lib/publicContent.ts` (le marché du samedi matin, sans heure, est inséré à son prochain samedi, heure de Paris, jusqu'à 13 h). Pages en `revalidate = 60` en repli de `revalidatePath` ; le sitemap inclut les actualités publiées.
 
-## Ancienne interface des actualités (`/espace-bureau/actualites`)
+## Module Actualités & agenda (`/espace-bureau/actualites`)
 
-Page client unique (`components/bureau/`) : connexion (nom + mot de passe commun), onglets « Actualités » / « Rendez-vous », historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie). Page `noindex`, absente du sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`). La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi.
+Dans la coquille du hub (`app/espace-bureau/(hub)/actualites/page.tsx`, garde `requireModulePage("actus-agenda")`), sans connexion propre. Composant client `components/bureau/ActusApp.tsx` : onglets « Actualités » / « Agenda » (écriture seulement ; en lecture seule, un message remplace les formulaires), historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie), lien « Modérer les saisies » pour l'admin. La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi. Page `noindex`, hors sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`).
 
-## Pages de modération (`/espace-bureau/moderation`)
+## Pages de modération (`/espace-bureau/actualites/moderation`)
 
-Pages `noindex`, rendues côté client et alimentées uniquement par les routes `/api/admin/*` (session admin, connexion sur place : l'URL demandée reste affichée après connexion). `/espace-bureau/moderation` liste les saisies (onglets « À traiter » / « Traitées ») ; `/espace-bureau/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire, captures dans `SHOTS_DIR`).
+Pages `noindex` du groupe `(hub)`, réservées à l'admin (`requireModerationPage`, `lib/hub/page-guards.ts`), rendues côté client et alimentées par `/api/admin/submissions*`. `/espace-bureau/actualites/moderation` liste les saisies (« À traiter » / « Traitées ») ; `/espace-bureau/actualites/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Les liens des alertes de relecture pointent vers ces nouvelles URL. Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire avec comptes fictifs créés par `scripts/hub-create-admin.mjs`, captures dans `SHOTS_DIR`).
 
 `parseReview` est asynchrone : il refuse une `corrected.image` introuvable (comme `createSubmission`).

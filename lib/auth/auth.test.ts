@@ -4,9 +4,7 @@ import { test } from "node:test";
 import { isSameOrigin } from "./origin";
 import { hashPassword, verifyPassword } from "./password";
 import { recordFailure, resetRateLimits, retryAfter } from "./rate-limit";
-import { createSessionToken, SESSION_TTL_SECONDS, verifySessionToken } from "./session";
 
-const KEY = "k".repeat(40);
 
 test("empreinte scrypt : vérification et sel aléatoire", async () => {
   const h = await hashPassword("mot de passe test");
@@ -21,20 +19,6 @@ test("empreinte scrypt : vérification et sel aléatoire", async () => {
 test("scripts/hash-password.mjs produit une empreinte vérifiable", async () => {
   const out = execFileSync("node", ["scripts/hash-password.mjs"], { input: "un mot de passe long" }).toString().trim();
   assert.ok(await verifyPassword("un mot de passe long", out));
-});
-
-test("session : aller-retour, rôle, expiration, falsification", () => {
-  const now = Date.UTC(2026, 10, 2, 10);
-  const t = createSessionToken("bureau", "Nom", now, KEY);
-  assert.deepEqual(verifySessionToken(t, "bureau", now + 1000, KEY)?.name, "Nom");
-  assert.equal(verifySessionToken(t, "admin", now, KEY), null, "rôle différent");
-  assert.equal(verifySessionToken(t, "bureau", now + SESSION_TTL_SECONDS * 1000, KEY), null, "expirée");
-  assert.equal(verifySessionToken(t, "bureau", now, "z".repeat(40)), null, "autre secret");
-  const [p, s] = t.split(".");
-  const forged = Buffer.from(JSON.stringify({ role: "bureau", name: "Autre", exp: 9e9 })).toString("base64url");
-  assert.equal(verifySessionToken(`${forged}.${s}`, "bureau", now, KEY), null);
-  assert.equal(verifySessionToken(`${p}.`, "bureau", now, KEY), null);
-  assert.equal(verifySessionToken(undefined, "bureau", now, KEY), null);
 });
 
 test("limitation : blocage après 5 échecs, levée après 15 min", () => {

@@ -162,7 +162,7 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
             <p className="text-lg font-semibold text-moss-dark">{done}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {next ? (
-                <Link href={`/espace-bureau/moderation/${next.id}`} className={btnPrimary}>
+                <Link href={`/espace-bureau/actualites/moderation/${next.id}`} className={btnPrimary}>
                   Saisie suivante : {next.title}
                 </Link>
               ) : next === null ? (
@@ -170,7 +170,7 @@ function Body({ sub, onChange }: { sub: Submission; onChange: (s: Submission) =>
               ) : (
                 <p className="text-ink-muted">Recherche de la saisie suivante…</p>
               )}
-              <Link href="/espace-bureau/moderation" className={btnSecondary}>
+              <Link href="/espace-bureau/actualites/moderation" className={btnSecondary}>
                 Retour à la liste
               </Link>
             </div>
