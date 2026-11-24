@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DossierActions } from "@/components/suivi/DossierActions";
 import { btnGhost, Pastille } from "@/components/suivi/ui";
 import { requireModulePage } from "@/lib/hub/page-guards";
-import { aujourdhui, dateHeure, dateLongue, enRetard, libellePriorite, niveauPriorite, nomsReferents } from "@/lib/suivi/affichage";
+import { aujourdhui, dateHeure, enRetard, libellePriorite, niveauPriorite, echeanceAffichage, referentsAffichage } from "@/lib/suivi/affichage";
 import { lireNoms, readData } from "@/lib/suivi/store";
 
 export const dynamic = "force-dynamic";
@@ -47,14 +47,14 @@ export default async function DetailDossier({ params }: { params: Promise<{ id: 
 
       <h3 className="mt-7 text-xl font-bold">Le dossier</h3>
       <dl className="mt-2 rounded-xl border border-border-subtle bg-surface px-4">
-        <Champ nom="Référent" valeur={nomsReferents(d, noms)} />
+        <Champ nom={referentsAffichage(d, noms)?.label ?? "Référent"} valeur={referentsAffichage(d, noms)?.texte ?? ""} />
         <Champ nom="Commission" valeur={d.commission} />
         <Champ nom="Priorité" valeur={libellePriorite(d.priorite)} />
         <Champ nom="Où en est-on ?" valeur={d.statut === "actif" ? d.avancement : ""} />
         <Champ nom="Ce qui bloque" valeur={d.blocage} />
         <Champ nom="Décision attendue de" valeur={d.decisionAttendue} />
         <Champ nom="Prochaine action" valeur={d.prochaineAction} />
-        <Champ nom="Pour le" valeur={d.echeance ? dateLongue(d.echeance) : ""} />
+        <Champ nom={echeanceAffichage(d.echeance)?.nom ?? "Échéance"} valeur={echeanceAffichage(d.echeance)?.valeur ?? ""} />
         <Champ nom="D’où vient ce dossier ?" valeur={d.origine} />
       </dl>
       {level === "write" ? <div className="mt-3 print:hidden"><Link href={`/espace-bureau/bureau/dossier/${d.id}/modifier`} className={btnGhost}>Modifier ce dossier</Link></div> : null}

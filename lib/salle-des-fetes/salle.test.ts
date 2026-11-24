@@ -66,6 +66,7 @@ test("création, validation et fichiers en 0600", async () => {
   assert.equal(r.revision, 1);
   assert.equal(r.publicVisible, false);
   const f = path.join(dir, "salle-des-fetes");
+  assert.equal((await fs.stat(f)).mode & 0o777, 0o700);
   assert.equal((await fs.stat(path.join(f, "reservations.json"))).mode & 0o777, 0o600);
   assert.equal((await fs.stat(path.join(f, "audit.jsonl"))).mode & 0o777, 0o600);
 });

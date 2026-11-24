@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { after, before, beforeEach, test } from "node:test";
 import { AppError } from "../content/errors";
-import { enRetard, niveauPriorite, nomsReferents, ordreDuJour } from "./affichage";
+import { echeanceAffichage, enRetard, niveauPriorite, nomsReferents, ordreDuJour, referentsAffichage } from "./affichage";
 import { exporterXlsx } from "./export";
 import { importerSuivi, rapprocher, type AncienBureau } from "./import";
 import { ajouterNouvelle, basculerBureau, clore, creerDossier, emptyData, filtrerDossiers, modifierDossier, normalizeEcheance, rouvrir } from "./model";
@@ -214,4 +214,15 @@ test("stockage : espace-bureau.json distinct de bureau.json, écritures sériali
   assert.equal(lignes.length, 13);
   assert.ok(lignes.every((l) => l.actor === "alice" && l.action.startsWith("bureau.")));
   assert.deepEqual((await lireNoms()).actifs, []);
+});
+
+test("affichage : échéance (date → « Pour le », libellé → « Échéance ») et référents au pluriel / sans compte", () => {
+  assert.deepEqual(echeanceAffichage("2026-12-15"), { nom: "Pour le", valeur: "15 décembre 2026", phrase: "Pour le 15 décembre 2026" });
+  assert.equal(echeanceAffichage("ASAP")?.phrase, "Échéance : ASAP");
+  assert.equal(echeanceAffichage(""), null);
+  const noms = { a: "Alice Démo", b: "Bruno Démo" };
+  assert.deepEqual(referentsAffichage({ referents: ["a", "b"] }, noms), { label: "Référents", texte: "Alice Démo, Bruno Démo" });
+  assert.deepEqual(referentsAffichage({ referents: ["a"] }, noms), { label: "Référent", texte: "Alice Démo" });
+  assert.deepEqual(referentsAffichage({ referents: [], anciensReferents: ["Zoé Ancienne"] }, noms), { label: "Référent", texte: "Zoé Ancienne (sans compte)" });
+  assert.equal(referentsAffichage({ referents: [] }, noms), null);
 });

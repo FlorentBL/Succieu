@@ -11,6 +11,12 @@ export function dataPath(...parts: string[]): string {
   return path.join(dataDir(), ...parts);
 }
 
+/** Crée (ou resserre) un dossier de données en 0700 : à appeler avant withLock/écriture pour qu'il ne naisse pas en 0775. */
+export async function ensurePrivateDir(dir: string): Promise<void> {
+  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+  await fs.chmod(dir, 0o700);
+}
+
 /** Écriture atomique : fichier temporaire dans le même dossier puis rename. */
 export async function writeFileAtomic(file: string, data: string | Buffer, mode = 0o640): Promise<void> {
   await fs.mkdir(path.dirname(file), { recursive: true });

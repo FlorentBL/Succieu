@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { withLock, writeFileAtomic } from "../content/storage";
+import { ensurePrivateDir, withLock, writeFileAtomic } from "../content/storage";
 import { findConflicts, isIsoDate, normalizeStored } from "./logic";
 import { auditFile, readAudit, reservationsFile } from "./store";
 import type { AuditEvent, Reservation } from "./types";
@@ -41,6 +41,7 @@ export async function importFromLegacy(sourceDir: string, opts: { dryRun?: boole
   };
   if (!srcAudit) report.warnings.push("audit-log.json absent : journal non importé.");
 
+  await ensurePrivateDir(path.dirname(reservationsFile()));
   await withLock(reservationsFile(), async () => {
     const current = await readJson<{ reservations?: Record<string, unknown>[] }>(reservationsFile(), {});
     const db: Reservation[] = (current.reservations ?? []).map(normalizeStored);
@@ -97,7 +98,7 @@ export async function importFromLegacy(sourceDir: string, opts: { dryRun?: boole
       await writeFileAtomic(reservationsFile(), JSON.stringify({ reservations: merged }, null, 2) + "\n", 0o600);
     }
     if (lines.length) {
-      await fs.mkdir(path.dirname(auditFile()), { recursive: true });
+      await ensurePrivateDir(path.dirname(auditFile()));
       await fs.appendFile(auditFile(), lines.join("\n") + "\n", { mode: 0o600 });
       await fs.chmod(auditFile(), 0o600);
     }
