@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { TextSizeApplier } from "@/components/hub/TextSize";
+import { TEXT_SIZE_SCRIPT } from "@/components/hub/sizeStore";
 
 export const metadata: Metadata = {
   title: "Espace bureau",
@@ -6,5 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function EspaceBureauLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_SCRIPT }} />
+      <TextSizeApplier />
+      {children}
+    </>
+  );
 }

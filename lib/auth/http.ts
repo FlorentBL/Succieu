@@ -10,7 +10,7 @@ export function errorResponse(e: unknown): NextResponse {
     const headers: Record<string, string> = { "Cache-Control": "no-store" };
     if (e.retryAfter) headers["Retry-After"] = String(e.retryAfter);
     return NextResponse.json(
-      { error: { code: e.code, message: e.message, ...(e.fields ? { fields: e.fields } : {}) } },
+      { error: { code: e.code, message: e.message, ...(e.fields ? { fields: e.fields } : {}), ...(e.details ? { details: e.details } : {}) } },
       { status: ERROR_STATUS[e.code], headers },
     );
   }

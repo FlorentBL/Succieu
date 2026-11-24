@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdmin } from "@/lib/hub/guards";
 import { handle, ok } from "@/lib/auth/http";
 import { getSubmission } from "@/lib/content/store";
 

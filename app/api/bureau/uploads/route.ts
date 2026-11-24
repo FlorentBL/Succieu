@@ -1,6 +1,5 @@
-import { requireBureau } from "@/lib/auth/guards";
+import { requireModule } from "@/lib/hub/guards";
 import { handle, ok } from "@/lib/auth/http";
-import { assertSameOrigin } from "@/lib/auth/origin";
 import { AppError } from "@/lib/content/errors";
 import { MAX_IMAGE_BYTES, saveImage } from "@/lib/content/images";
 
@@ -8,8 +7,7 @@ export const dynamic = "force-dynamic";
 
 /** multipart/form-data, champ "file". Retourne { image } à placer dans fields.image. */
 export const POST = handle(async (req) => {
-  assertSameOrigin(req);
-  await requireBureau();
+  await requireModule("actus-agenda", "write", req);
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > MAX_IMAGE_BYTES + 64 * 1024) {
     throw new AppError("payload_too_large", "Image trop lourde (40 Mo maximum).");

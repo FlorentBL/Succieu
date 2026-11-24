@@ -7,12 +7,13 @@ export class ApiError extends Error {
     public status: number,
     public fields?: Record<string, string>,
     public retryAfter?: number,
+    public details?: Record<string, unknown>,
   ) {
     super(message);
   }
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<T> {
+export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, { credentials: "same-origin", cache: "no-store", ...init });
@@ -26,9 +27,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     /* corps non JSON */
   }
   if (!res.ok) {
-    const e = (data as { error?: { code?: string; message?: string; fields?: Record<string, string> } } | null)?.error;
+    const e = (data as { error?: { code?: string; message?: string; fields?: Record<string, string>; details?: Record<string, unknown> } } | null)?.error;
     const retry = Number(res.headers.get("Retry-After")) || undefined;
-    throw new ApiError(e?.code ?? "server_error", e?.message ?? "Erreur inattendue.", res.status, e?.fields, retry);
+    throw new ApiError(e?.code ?? "server_error", e?.message ?? "Erreur inattendue.", res.status, e?.fields, retry, e?.details);
   }
   return data as T;
 }
@@ -39,12 +40,6 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const getNames = () => call<{ names: string[] }>("/api/bureau/names").then((r) => r.names);
-export const getSession = () => call<{ authenticated: boolean; name?: string | null }>("/api/bureau/session");
-export const login = (password: string) => call<{ ok: true }>("/api/bureau/login", json({ password }));
-export const chooseName = (name: string) =>
-  call<{ ok: true; name: string }>("/api/bureau/identity", json({ name })).then((r) => r.name);
-export const logout = () => call<{ ok: true }>("/api/bureau/logout", { method: "POST" });
 export const getSubmissions = () =>
   call<{ submissions: Submission[] }>("/api/bureau/submissions").then((r) => r.submissions);
 export const postSubmission = (kind: SubmissionKind, fields: Record<string, string>) =>

@@ -26,6 +26,11 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
   const data = (await res.json().catch(() => null)) as
     | (T & { error?: { code: string; message: string } })
     | null;
+  if (res.status === 401 && typeof window !== "undefined") {
+    // Session expirée : retour à la connexion du hub plutôt qu'une erreur.
+    window.location.assign("/espace-bureau/connexion");
+    return new Promise<T>(() => {});
+  }
   if (!res.ok) {
     throw new ApiError(
       data?.error?.message ?? "Erreur inattendue, réessayez.",

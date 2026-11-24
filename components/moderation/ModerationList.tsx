@@ -104,7 +104,7 @@ export function ModerationList() {
             {items.map((s) => (
               <li key={s.id}>
                 <Link
-                  href={`/espace-bureau/moderation/${s.id}`}
+                  href={`/espace-bureau/actualites/moderation/${s.id}`}
                   className="block rounded-[1.25rem] border border-border-subtle bg-surface p-5 shadow-[0_1px_2px_rgba(20,33,26,0.05)] transition hover:border-moss focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
                   <span className="flex flex-wrap items-center gap-2">
