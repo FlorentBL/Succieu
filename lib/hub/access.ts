@@ -1,5 +1,5 @@
 import { AppError } from "../content/errors";
-import { effectiveRights, hasAccess, type HubUser } from "./users";
+import { effectiveRights, hasAccess, isModerator, type HubUser } from "./users";
 import { HUB_MODULES, type AccessLevel, type HubModule, type ModuleId } from "./modules";
 
 /** Contrôle de session, sans accès aux cookies (testable). */
@@ -11,6 +11,13 @@ export function checkUser(user: HubUser | null): HubUser {
 export function checkAdmin(user: HubUser | null): HubUser {
   const u = checkUser(user);
   if (u.role !== "admin") throw new AppError("forbidden", "Réservé aux administrateurs.");
+  return u;
+}
+
+/** Modération des saisies : administrateur ou droit individuel « moderation » (aucun autre accès admin). */
+export function checkModerator(user: HubUser | null): HubUser {
+  const u = checkUser(user);
+  if (!isModerator(u)) throw new AppError("forbidden", "Réservé aux personnes autorisées à modérer.");
   return u;
 }
 

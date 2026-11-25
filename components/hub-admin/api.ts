@@ -8,6 +8,8 @@ export type AdminUser = {
   displayName: string;
   role: "admin" | "membre";
   category?: HubCategory;
+  /** Droit individuel de modération (absent = non). */
+  moderator?: boolean;
   active: boolean;
   /** null = ce compte n'a pas de drive. */
   driveLogin: string | null;

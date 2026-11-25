@@ -39,6 +39,8 @@ export type HubUser = {
   driveLogin?: string | null;
   /** État de la dernière synchronisation avec le drive (aucun secret). */
   driveSync?: DriveSyncState;
+  /** Droit individuel de modération (actualités et agenda), distinct des modules ; absent = pas de droit. L'administrateur l'a toujours. */
+  moderator?: boolean;
   rights: Rights;
   createdAt: string;
   updatedAt: string;
@@ -102,8 +104,22 @@ export function parseDriveLoginOrNone(raw: unknown, fallback: string): string | 
 
 export function toPublic(u: HubUser): PublicUser {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { passwordHash, passwordVersion, ...rest } = u;
-  return { ...rest, driveLogin: driveLoginOf(u), rights: effectiveRights(u) };
+  const { passwordHash, passwordVersion, moderator, ...rest } = u;
+  return { ...rest, driveLogin: driveLoginOf(u), rights: effectiveRights(u), ...(moderator === true ? { moderator: true } : {}) };
+}
+
+/** Peut modérer les saisies : administrateur, ou droit individuel « moderation » posé par l'administrateur. */
+export function isModerator(u: Pick<HubUser, "role" | "moderator">): boolean {
+  return u.role === "admin" || u.moderator === true;
+}
+
+/** Valide le droit de modération (undefined = non précisé ; booléen strict). */
+export function parseModerator(v: unknown): boolean | undefined {
+  if (v === undefined) return undefined;
+  if (typeof v !== "boolean") {
+    throw new AppError("validation_failed", "Droit de modération invalide.", { fields: { moderator: "true ou false." } });
+  }
+  return v;
 }
 
 export function effectiveRights(u: Pick<HubUser, "role" | "rights">): Rights {
@@ -198,9 +214,10 @@ export type CreateUserInput = {
   /** Identifiant du compte drive (défaut : l'identifiant). */
   driveLogin?: string | null;
   driveSync?: DriveSyncState;
+  moderator?: unknown;
 };
 
-export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; category?: HubCategory; rights: Rights; driveLogin?: string | null; password: string };
+export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; category?: HubCategory; moderator?: boolean; rights: Rights; driveLogin?: string | null; password: string };
 
 /** Valide une catégorie facultative (undefined/null = non précisée). */
 export function parseCategory(v: unknown): HubCategory | undefined {
@@ -229,9 +246,10 @@ export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
   }
   const category = parseCategory(input.category);
   const rights = parseRights(input.rights);
+  const moderator = parseModerator(input.moderator) === true;
   const login = parseDriveLoginOrNone(input.driveLogin, identifier);
   const password = input.password === undefined ? generatePassword() : validateNewPassword(input.password);
-  return { identifier, displayName, role, ...(category ? { category } : {}), rights, driveLogin: login === identifier ? undefined : login, password };
+  return { identifier, displayName, role, ...(category ? { category } : {}), ...(moderator ? { moderator } : {}), rights, driveLogin: login === identifier ? undefined : login, password };
 }
 
 /** Échoue si l'identifiant existe déjà (vérification avant d'écrire sur le drive). */
@@ -258,6 +276,7 @@ export async function createUser(
     displayName: v.displayName,
     role: v.role,
     ...(v.category ? { category: v.category } : {}),
+    ...(v.moderator ? { moderator: true } : {}),
     active: true,
     passwordHash,
     passwordVersion: 1,
@@ -361,7 +380,7 @@ export async function setDriveState(
 /** Change rôle et/ou droits. */
 export async function updateRoleAndRights(
   id: string,
-  patch: { role?: HubRole; category?: unknown; rights?: unknown; displayName?: string },
+  patch: { role?: HubRole; category?: unknown; moderator?: unknown; rights?: unknown; displayName?: string },
   by: Actor,
 ): Promise<PublicUser> {
   if (patch.role !== undefined && patch.role !== "admin" && patch.role !== "membre") {
@@ -369,6 +388,7 @@ export async function updateRoleAndRights(
   }
   const category = parseCategory(patch.category);
   const rights = patch.rights === undefined ? undefined : parseRights(patch.rights);
+  const moderator = parseModerator(patch.moderator);
   const displayName = patch.displayName?.trim();
   if (patch.displayName !== undefined && (!displayName || displayName.length > 80)) {
     throw new AppError("validation_failed", "Nom affiché invalide.", { fields: { displayName: "1 à 80 caractères." } });
@@ -380,9 +400,12 @@ export async function updateRoleAndRights(
     (u, list) => {
       const role = patch.role ?? u.role;
       if (u.role === "admin" && u.active && role !== "admin" && activeAdmins(list).length <= 1) throw lastAdminError();
-      return { ...u, role, ...(category ? { category } : {}), rights: rights ?? u.rights, displayName: displayName ?? u.displayName };
+      const next: HubUser = { ...u, role, ...(category ? { category } : {}), rights: rights ?? u.rights, displayName: displayName ?? u.displayName };
+      if (moderator === true) next.moderator = true;
+      else if (moderator === false) delete next.moderator;
+      return next;
     },
-    (u) => `${u.identifier} role=${u.role} category=${u.category ?? "-"} rights=${JSON.stringify(effectiveRights(u))}`,
+    (u) => `${u.identifier} role=${u.role} category=${u.category ?? "-"} moderation=${u.moderator === true ? "oui" : "non"} rights=${JSON.stringify(effectiveRights(u))}`,
   );
   return toPublic(u);
 }

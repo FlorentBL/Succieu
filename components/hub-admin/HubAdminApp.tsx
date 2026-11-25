@@ -53,6 +53,18 @@ function RightChip({ level, label, all }: { level: AccessLevel; label: string; a
   );
 }
 
+/** Case du droit individuel de modération (hors droits de groupe) ; l'administrateur l'a toujours. */
+function ModeratorField({ checked, disabled, onChange }: { checked: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="mt-4">
+      <label className="flex items-center gap-2 font-semibold">
+        <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} /> Peut modérer les actualités et l&apos;agenda
+      </label>
+      <p className="mt-1 text-sm text-ink-muted">{disabled ? "Un administrateur peut toujours modérer." : "Droit individuel : il ne dépend ni du modèle de groupe ni des droits par module."}</p>
+    </div>
+  );
+}
+
 /** Pastille de catégorie : mot + icône, jamais la couleur seule. */
 function CategoryChip({ category }: { category: DisplayCategory }) {
   const tone = category === "admin" ? "bg-moss-dark text-white" : category === "bureau" ? "bg-pre-pale text-moss-dark" : "bg-canvas text-ink ring-1 ring-inset ring-border-subtle";
@@ -229,6 +241,9 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                     </th>
                     <td className={td}>
                       <CategoryChip category={displayCategory(u)} />
+                      {u.moderator === true && u.role !== "admin" && (
+                        <span className={`${chip} ml-1 bg-colza-pale text-ink`} data-testid="moderator-mark" title="Peut modérer les actualités et l'agenda"><span aria-hidden>✔</span>Modération</span>
+                      )}
                     </td>
                     <td className={td}>
                       <span className={`${chip} ${u.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>{u.active ? "Oui" : "Non"}</span>
@@ -451,6 +466,7 @@ function CreateForm({ driveEnabled, templates, onCreated, onError }: { driveEnab
   const [role, setRole] = useState<"admin" | "membre">("membre");
   const [category, setCategory] = useState<HubCategory>("conseil");
   const [rights, setRights] = useState<Rights>(emptyRights());
+  const [moderator, setModerator] = useState(false);
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
   const id = useId();
 
@@ -459,11 +475,11 @@ function CreateForm({ driveEnabled, templates, onCreated, onError }: { driveEnab
     onError("");
     try {
       const r = await call<{ user: AdminUser; password: string; drive: DriveOutcome }>("/api/admin/users", "POST", {
-        displayName, identifier: identifier || suggestIdentifier(displayName), role, category, rights, ...pw,
+        displayName, identifier: identifier || suggestIdentifier(displayName), role, category, rights, moderator, ...pw,
         ...(noDrive ? { driveLogin: null } : driveLogin.trim() ? { driveLogin: driveLogin.trim() } : {}),
       });
       onCreated(r.user, r.password, r.drive);
-      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setNoDrive(false); setRole("membre"); setCategory("conseil"); setRights(emptyRights()); setPw({ passwordMode: "generate" }); setOpen(false);
+      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setNoDrive(false); setRole("membre"); setCategory("conseil"); setRights(emptyRights()); setModerator(false); setPw({ passwordMode: "generate" }); setOpen(false);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Création impossible.");
     }
@@ -500,6 +516,7 @@ function CreateForm({ driveEnabled, templates, onCreated, onError }: { driveEnab
       <p className="mt-1 text-sm text-ink-muted">Choisir une catégorie propose les droits du modèle de cette catégorie ; vous pouvez les modifier ci-dessous avant de créer le compte. Un administrateur s&apos;affiche toujours « Admin ».</p>
       <h3 className="mt-5 font-semibold">Droits par module</h3>
       {role === "admin" ? <p className="text-ink-muted">Un administrateur a l&apos;écriture partout.</p> : <RightsGrid name="new" rights={rights} onChange={setRights} />}
+      <ModeratorField checked={moderator || role === "admin"} disabled={role === "admin"} onChange={setModerator} />
       <PasswordChooser name="new" value={pw} onChange={setPw} />
       <div className="mt-5 flex flex-wrap gap-3">
         <button type="submit" className={btnPrimary}>Créer le compte</button>
@@ -512,17 +529,18 @@ function CreateForm({ driveEnabled, templates, onCreated, onError }: { driveEnab
 /** Panneau de modification d'un seul compte à la fois. */
 function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onReset }: {
   user: AdminUser; self: boolean; driveEnabled: boolean; onClose: () => void;
-  onSave: (p: { role?: string; category?: HubCategory; rights?: Rights; driveLogin?: string | null }) => void;
+  onSave: (p: { role?: string; category?: HubCategory; moderator?: boolean; rights?: Rights; driveLogin?: string | null }) => void;
   onActive: (a: boolean) => void; onReset: (c: PasswordChoice) => void;
 }) {
   const [rights, setRights] = useState<Rights>(user.rights);
+  const [moderator, setModerator] = useState(user.moderator === true);
   const [role, setRole] = useState(user.role);
   const [category, setCategory] = useState<HubCategory>(user.category ?? "conseil");
   const [driveLogin, setDriveLogin] = useState(user.driveLogin ?? "");
   const [noDrive, setNoDrive] = useState(user.driveLogin === null);
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
   const [showPw, setShowPw] = useState(false);
-  const dirty = role !== user.role || category !== (user.category ?? "conseil") || JSON.stringify(rights) !== JSON.stringify(user.rights) || noDrive !== (user.driveLogin === null) || (!noDrive && driveLogin !== (user.driveLogin ?? ""));
+  const dirty = role !== user.role || moderator !== (user.moderator === true) || category !== (user.category ?? "conseil") || JSON.stringify(rights) !== JSON.stringify(user.rights) || noDrive !== (user.driveLogin === null) || (!noDrive && driveLogin !== (user.driveLogin ?? ""));
   const [pending, setPending] = useState<{ msg: string; fn: () => void } | null>(null);
   const confirmThen = (msg: string, fn: () => void) => () => setPending({ msg, fn });
   return (
@@ -555,6 +573,7 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
       </div>
       <h3 className="mt-4 font-semibold">Droits par module</h3>
       {role === "admin" ? <p className="text-ink-muted">Écriture partout (administrateur).</p> : <RightsGrid name={user.id} rights={rights} onChange={setRights} />}
+      <ModeratorField checked={moderator || role === "admin"} disabled={role === "admin"} onChange={setModerator} />
       {pending && (
         <div role="alertdialog" aria-label="Confirmation" className="mt-4 rounded-xl border-2 border-moss bg-pre-pale p-4">
           <p className="font-semibold">{pending.msg}</p>
@@ -566,7 +585,7 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
       )}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={btnPrimary} disabled={!dirty}
-          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, category, rights, driveLogin: noDrive ? null : driveLogin }))}>
+          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, category, moderator, rights, driveLogin: noDrive ? null : driveLogin }))}>
           Enregistrer
         </button>
         <button type="button" className={btnSecondary} aria-expanded={showPw} onClick={() => setShowPw((v) => !v)}>Réinitialiser le mot de passe</button>

@@ -53,7 +53,7 @@ export function ActusApp({ canWrite, isAdmin }: { canWrite: boolean; isAdmin: bo
     <>
       {isAdmin ? (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-pre-pale px-4 py-3">
-          <p className="text-[0.95rem] text-ink">Vous êtes administrateur : les saisies attendent votre décision.</p>
+          <p className="text-[0.95rem] text-ink">Vous pouvez modérer : les saisies attendent votre décision.</p>
           <Link href="/espace-bureau/actualites/moderation" className={`inline-flex min-h-11 items-center rounded-full bg-moss-dark px-5 text-[0.95rem] font-semibold text-white ${focusRing}`}>
             Modérer les saisies
           </Link>

@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/hub/guards";
+import { requireModerator } from "@/lib/hub/guards";
 import { handle, ok } from "@/lib/auth/http";
 import { AppError } from "@/lib/content/errors";
 import { listSubmissions } from "@/lib/content/store";
@@ -10,7 +10,7 @@ const STATUSES: SubmissionStatus[] = ["submitted", "reviewed", "published", "rej
 
 /** ?status=submitted,reviewed (défaut : en attente = submitted + reviewed). */
 export const GET = handle(async (req) => {
-  await requireAdmin();
+  await requireModerator();
   const param = new URL(req.url).searchParams.get("status");
   const status = param ? (param.split(",") as SubmissionStatus[]) : (["submitted", "reviewed"] as SubmissionStatus[]);
   if (!status.every((s) => STATUSES.includes(s))) {

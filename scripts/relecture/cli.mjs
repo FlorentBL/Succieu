@@ -88,7 +88,7 @@ export async function submitReview(id, file, { env = process.env, fetchFn = fetc
 
 /** Construit la charge utile Discord (sans mention possible). */
 export function buildDiscordPayload(sub, baseUrl) {
-  const link = `${baseUrl.replace(/\/+$/, "")}/espace-bureau/actualites/moderation/${sub.id}`;
+  const link = `${baseUrl.replace(/\/+$/, "")}/espace-bureau/moderation/${sub.id}`;
   const label = KIND_LABEL[sub.kind] ?? sub.kind;
   const title = sub.review?.corrected?.title || sub.original?.title || sub.id;
   const review = sub.review;
@@ -113,7 +113,7 @@ const ADDR_RE = /^[^\s<>"(),;:\\\r\n@]+@[^\s<>"(),;:\\\r\n@]+\.[^\s<>"(),;:\\\r\
 
 /** Construit le mail de modération (pure) : { subject, text }. */
 export function buildMail(sub, baseUrl) {
-  const link = `${baseUrl.replace(/\/+$/, "")}/espace-bureau/actualites/moderation/${sub.id}`;
+  const link = `${baseUrl.replace(/\/+$/, "")}/espace-bureau/moderation/${sub.id}`;
   const label = KIND_LABEL[sub.kind] ?? sub.kind;
   const title = sub.review?.corrected?.title || sub.original?.title || sub.id;
   const review = sub.review;

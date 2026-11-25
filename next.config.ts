@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async redirects() {
-    // Anciennes URL de la modération (liens des alertes déjà envoyées).
+    // Ancien chemin de la modération (avant son entrée dans le menu du hub).
     return [
-      { source: "/espace-bureau/moderation", destination: "/espace-bureau/actualites/moderation", permanent: true },
-      { source: "/espace-bureau/moderation/:id", destination: "/espace-bureau/actualites/moderation/:id", permanent: true },
+      { source: "/espace-bureau/actualites/moderation", destination: "/espace-bureau/moderation", permanent: true },
+      { source: "/espace-bureau/actualites/moderation/:id", destination: "/espace-bureau/moderation/:id", permanent: true },
     ];
   },
 };
