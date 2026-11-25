@@ -18,7 +18,7 @@ export function ModerationFrame({
       <PageHero
         slim
         title={title}
-        description="Relecture, publication et refus des saisies du bureau municipal."
+        description="Relecture, publication et refus des saisies des élus."
       />
       <PageShell className="py-4 sm:py-6">
         <div className="mb-4">
