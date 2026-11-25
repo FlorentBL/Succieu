@@ -12,7 +12,7 @@ const LEVEL_LABEL: Record<AccessLevel, string> = { none: "Aucun", read: "Lecture
 const card = "!p-4 sm:!p-6";
 const input = `mt-1 min-h-12 block w-full rounded-xl border border-ink-subtle/60 bg-surface px-3.5 py-2.5 text-base text-ink ${focusRing}`;
 const th = "px-3 py-2 text-left text-sm font-semibold text-ink-muted";
-const td = "px-3 py-2 align-top";
+const td = "px-3 py-1.5 align-middle";
 
 const emptyRights = (): Rights => Object.fromEntries(HUB_MODULES.map((m) => [m.id, "none"])) as Rights;
 const suggestIdentifier = (name: string) =>
@@ -29,18 +29,38 @@ const DRIVE_NOTE: Record<DriveOutcome["status"], string> = {
   error: "",
 };
 
-function rightsSummary(u: AdminUser): string {
-  if (u.role === "admin") return "Tout (administrateur)";
-  const parts = HUB_MODULES.filter((m) => u.rights[m.id] !== "none").map((m) => `${m.label} : ${LEVEL_LABEL[u.rights[m.id]].toLowerCase()}`);
-  return parts.length ? parts.join(" · ") : "Aucun";
+const SHORT_MODULE: Record<string, string> = { "actus-agenda": "Actualités", "espace-bureau": "Espace Bureau", "salle-des-fetes": "Salle des fêtes", documents: "Documents" };
+
+const iconProps = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true, focusable: false } as const;
+const PencilIcon = () => <svg {...iconProps}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>;
+const EyeIcon = () => <svg {...iconProps}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></svg>;
+
+const chip = "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold";
+
+/** Pastille de droit : icône + mot, jamais la couleur seule. */
+function RightChip({ level, label, all }: { level: AccessLevel; label: string; all?: boolean }) {
+  const text = all ? "Tout" : LEVEL_LABEL[level];
+  const aria = `${label} : ${all ? "écriture (administrateur)" : LEVEL_LABEL[level].toLowerCase()}`;
+  if (level === "none") return <span className="text-ink-muted" role="img" aria-label={aria} title={aria}>—</span>;
+  return (
+    <span role="img" aria-label={aria} title={aria} className={`${chip} ${level === "write" ? "bg-pre-pale text-moss-dark" : "bg-canvas text-ink ring-1 ring-inset ring-border-subtle"}`}>
+      {level === "write" ? <PencilIcon /> : <EyeIcon />}
+      <span aria-hidden>{text}</span>
+    </span>
+  );
 }
 
-function driveState(u: AdminUser, enabled: boolean): { label: string; tone: string } {
-  if (u.driveLogin === null) return { label: "Pas de drive", tone: "text-ink-muted" };
-  if (!enabled) return { label: "Synchro désactivée", tone: "text-ink-muted" };
-  if (u.driveSync?.error) return { label: "Erreur", tone: "text-tuile" };
-  if (u.driveSync?.at) return { label: `Synchronisé ${formatDate(u.driveSync.at)}`, tone: "text-moss-dark" };
-  return { label: "À synchroniser", tone: "text-ink-muted" };
+function driveState(u: AdminUser, enabled: boolean): { label: string; tone: string; hint: string } {
+  if (u.driveLogin === null) return { label: "Pas de drive", tone: "text-ink-muted", hint: "Ce compte n'a pas de drive" };
+  if (!enabled) return { label: "Désactivée", tone: "text-ink-muted", hint: "Synchronisation avec le drive désactivée" };
+  if (u.driveSync?.error) return { label: "Erreur", tone: "text-tuile", hint: `Erreur de synchro : ${u.driveSync.error}` };
+  if (u.driveSync?.at) return { label: "OK", tone: "text-moss-dark", hint: `Synchronisé le ${formatDate(u.driveSync.at)}` };
+  return { label: "À faire", tone: "text-ink-muted", hint: "Pas encore synchronisé" };
+}
+
+function shortDate(iso: string | null): string {
+  if (!iso) return "jamais";
+  return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" }).format(new Date(iso)).replace(",", "");
 }
 
 /** Console des comptes ; la coquille (page serveur) garantit session et rôle admin. */
@@ -119,36 +139,52 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       />
       <section aria-labelledby="comptes" className="space-y-3">
         <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">{loaded ? `Comptes (${users.length})` : "Chargement des comptes…"}</h2>
+        <p className="text-ink-muted" data-testid="accounts-summary">
+          {users.length} compte{users.length > 1 ? "s" : ""} · {users.filter((u) => u.active).length} actif{users.filter((u) => u.active).length > 1 ? "s" : ""} · {users.filter((u) => u.role === "admin").length} administrateur{users.filter((u) => u.role === "admin").length > 1 ? "s" : ""}
+        </p>
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted" data-testid="rights-legend">
+          <span className="inline-flex items-center gap-1"><PencilIcon /> Écriture</span>
+          <span className="inline-flex items-center gap-1"><EyeIcon /> Lecture</span>
+          <span className="inline-flex items-center gap-1">— Aucun accès</span>
+        </p>
         <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface">
-          <table className="w-full min-w-[56rem] border-collapse text-base">
+          <table className="w-full min-w-[52rem] border-collapse text-sm">
             <thead className="border-b border-border-subtle bg-canvas">
               <tr>
-                <th scope="col" className={th}>Nom</th>
-                <th scope="col" className={th}>Identifiant</th>
+                <th scope="col" className={`${th} sticky left-0 z-10 bg-canvas`}>Nom</th>
                 <th scope="col" className={th}>Rôle</th>
                 <th scope="col" className={th}>Actif</th>
-                <th scope="col" className={th}>Droits</th>
+                {HUB_MODULES.map((m) => <th key={m.id} scope="col" className={`${th} text-center`}>{SHORT_MODULE[m.id] ?? m.label}</th>)}
                 <th scope="col" className={th}>Drive</th>
-                <th scope="col" className={th}>Dernière connexion</th>
+                <th scope="col" className={th}>Connexion</th>
                 <th scope="col" className={th}><span className="sr-only">Action</span></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
               {users.map((u) => {
                 const d = driveState(u, driveEnabled);
+                const rowBg = editing === u.id ? "bg-pre-pale" : "bg-surface";
                 return (
                   <tr key={u.id} className={`${u.active ? "" : "opacity-70"} ${editing === u.id ? "bg-pre-pale" : ""}`}>
-                    <th scope="row" className={`${td} font-semibold`}>{u.displayName}{u.id === selfId && " (vous)"}</th>
-                    <td className={td}>{u.identifier}{u.driveLogin !== null && u.driveLogin !== u.identifier && <span className="block text-sm text-ink-muted">drive : {u.driveLogin}</span>}</td>
-                    <td className={td}>{u.role === "admin" ? "Administrateur" : "Membre"}</td>
+                    <th scope="row" className={`${td} sticky left-0 z-10 text-left ${rowBg}`}>
+                      <span className="block font-bold">{u.displayName}{u.id === selfId && " (vous)"}</span>
+                      <span className="block text-xs font-normal text-ink-muted">{u.identifier}{u.driveLogin !== null && u.driveLogin !== u.identifier && ` · drive : ${u.driveLogin}`}</span>
+                    </th>
                     <td className={td}>
-                      <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${u.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>{u.active ? "Oui" : "Non"}</span>
+                      <span className={`${chip} ${u.role === "admin" ? "bg-moss-dark text-white" : "bg-canvas text-ink ring-1 ring-inset ring-border-subtle"}`}>{u.role === "admin" ? "Admin" : "Membre"}</span>
                     </td>
-                    <td className={`${td} max-w-64 text-sm`}>{rightsSummary(u)}</td>
-                    <td className={`${td} text-sm ${d.tone}`} title={u.driveSync?.error}>{d.label}</td>
-                    <td className={`${td} text-sm`}>{formatDate(u.lastLogin)}</td>
                     <td className={td}>
-                      <button type="button" id={`modifier-${u.id}`} className={btnSecondary} aria-haspopup="dialog" aria-expanded={editing === u.id} aria-label={`Modifier ${u.displayName}`}
+                      <span className={`${chip} ${u.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>{u.active ? "Oui" : "Non"}</span>
+                    </td>
+                    {HUB_MODULES.map((m) => (
+                      <td key={m.id} className={`${td} text-center`}>
+                        <RightChip level={u.role === "admin" ? "write" : u.rights[m.id]} all={u.role === "admin"} label={SHORT_MODULE[m.id] ?? m.label} />
+                      </td>
+                    ))}
+                    <td className={`${td} font-semibold ${d.tone}`} title={d.hint}><span aria-label={d.hint}>{d.label}</span></td>
+                    <td className={`${td} whitespace-nowrap`}>{shortDate(u.lastLogin)}</td>
+                    <td className={td}>
+                      <button type="button" id={`modifier-${u.id}`} className={`${btnSecondary} !min-h-9 !px-3 !py-1 !text-sm`} aria-haspopup="dialog" aria-expanded={editing === u.id} aria-label={`Modifier ${u.displayName}`}
                         onClick={() => setEditing(u.id)}>
                         Modifier
                       </button>
