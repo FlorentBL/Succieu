@@ -28,3 +28,13 @@ export async function summaryFor(id: ModuleId, user: HubUser): Promise<string | 
     return null; // un résumé en échec ne doit jamais casser l'accueil
   }
 }
+
+/** Nombre de saisies en attente de décision (soumises ou relues) ; null si la lecture échoue. */
+export async function pendingModerationCount(): Promise<number | null> {
+  try {
+    const { listSubmissions } = await import("../content/store");
+    return (await listSubmissions({ status: ["submitted", "reviewed"] })).length;
+  } catch {
+    return null;
+  }
+}

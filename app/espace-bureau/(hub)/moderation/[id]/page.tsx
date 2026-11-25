@@ -6,7 +6,7 @@ export default async function ModerationDetailPage({ params }: { params: Promise
   await requireModerationPage();
   const { id } = await params;
   return (
-    <ModerationFrame title="Détail de la saisie" back={{ href: "/espace-bureau/actualites/moderation", label: "← Toutes les saisies" }}>
+    <ModerationFrame title="Détail de la saisie" back={{ href: "/espace-bureau/moderation", label: "← Toutes les saisies" }}>
       <SubmissionDetail id={id} />
     </ModerationFrame>
   );

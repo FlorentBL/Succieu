@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { HUB_COOKIE, resolveHubUser } from "./session";
 import { allowedModules } from "./access";
-import { hasAccess, type HubUser } from "./users";
+import { hasAccess, isModerator, type HubUser } from "./users";
 import { HUB_MODULES, type ModuleId } from "./modules";
 
 export { allowedModules };
@@ -34,9 +34,9 @@ export async function requireModulePage(id: ModuleId): Promise<{ user: HubUser; 
   return { user, level: hasAccess(user, id, "write") ? "write" : "read" };
 }
 
-/** Page de modération des saisies : réservée aux administrateurs (les autres retournent au module). */
+/** Pages de modération des saisies : administrateurs et personnes autorisées (les autres retournent à l'accueil). */
 export async function requireModerationPage(): Promise<HubUser> {
-  const { user } = await requireModulePage("actus-agenda");
-  if (user.role !== "admin") redirect("/espace-bureau/actualites");
+  const user = await requireHubPageUser();
+  if (!isModerator(user)) redirect("/espace-bureau");
   return user;
 }

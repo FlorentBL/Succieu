@@ -6,7 +6,7 @@
 
 | Module (`id`) | Page | Contenu | Doc |
 |---|---|---|---|
-| `actus-agenda` | `/espace-bureau/actualites` (+ `/moderation`, admin seulement) | Saisie des actualités et de l'agenda, relecture par l'agent, modération | ci-dessous |
+| `actus-agenda` | `/espace-bureau/actualites` (+ `/espace-bureau/moderation`, droit individuel de modération) | Saisie des actualités et de l'agenda, relecture par l'agent, modération | ci-dessous |
 | `espace-bureau` | `/espace-bureau/bureau` | Suivi des dossiers du bureau (porté de suivi.succieu.fr) | « Module Espace Bureau » |
 | `salle-des-fetes` | `/espace-bureau/salle-des-fetes` | Réservations, conflits, exports, journal (porté de sdf.succieu.fr) | « Module Salle des fêtes » |
 | `documents` | `/espace-bureau/documents` | Lien vers le drive (`BUREAU_DRIVE_URL`) | `lib/hub/drive.ts` |
@@ -142,7 +142,7 @@ Pages, toutes `noindex` (layout `app/espace-bureau/layout.tsx`), hors sitemap, `
 | `/espace-bureau/administration` | `(hub)/administration/page.tsx` | Admin seulement ; console de gestion des comptes (`components/hub-admin/`). `/espace-bureau/admin` y redirige. |
 | `/espace-bureau/<chemin du module>` | `(hub)/[module]/page.tsx` | Emplacement provisoire des modules sans page propre. |
 | `/espace-bureau/actualites` | `(hub)/actualites/page.tsx` | Module Actualités & agenda (`actus-agenda`) : saisie et historique. |
-| `/espace-bureau/actualites/moderation[/<id>]` | `(hub)/actualites/moderation/` | Modération, admin seulement (les autres sont renvoyés au module). Anciennes URL `/espace-bureau/moderation*` : redirection 308 (`next.config.ts`). |
+| `/espace-bureau/moderation[/<id>]` | `(hub)/moderation/` | Modération : administrateurs et personnes ayant le droit individuel « moderation » (les autres retournent à l'accueil). Entrée « Modération » du menu et tuile d'accueil (« N à valider ») visibles par eux seuls. Ancien chemin `/espace-bureau/actualites/moderation*` : redirection 308 (`next.config.ts`). |
 
 Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exige une session (`requireHubPageUser` : sinon redirection vers la connexion), puis affiche `HubNav` (`components/hub/HubNav.tsx`) : Accueil, modules autorisés (niveau ≥ lecture, ordre du registre), Administration (admin), Mon compte, taille du texte. Sur un module en lecture seule, un bandeau jaune « Lecture seule » s'affiche. Le layout ne protège pas les données : chaque page de module appelle sa propre garde.
 
@@ -299,10 +299,18 @@ Corps et réponses en JSON. Succès : `{ ... }` ; échec : `{ "error": { "code",
 
 ## Module Actualités & agenda (`/espace-bureau/actualites`)
 
-Dans la coquille du hub (`app/espace-bureau/(hub)/actualites/page.tsx`, garde `requireModulePage("actus-agenda")`), sans connexion propre. Composant client `components/bureau/ActusApp.tsx` : onglets « Actualités » / « Agenda » (écriture seulement ; en lecture seule, un message remplace les formulaires), historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie), lien « Modérer les saisies » pour l'admin. La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi. Page `noindex`, hors sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`).
+Dans la coquille du hub (`app/espace-bureau/(hub)/actualites/page.tsx`, garde `requireModulePage("actus-agenda")`), sans connexion propre. Composant client `components/bureau/ActusApp.tsx` : onglets « Actualités » / « Agenda » (écriture seulement ; en lecture seule, un message remplace les formulaires), historique de l'auteur (statut, avis de l'agent, version corrigée, version publiée, motif de refus, chronologie), lien « Modérer les saisies » pour les modérateurs. La validation côté client appelle directement `parseArticleFields` / `parseEventFields` de `lib/content/validation.ts` : aucune règle dupliquée. Pas d'édition après envoi. Page `noindex`, hors sitemap, `Disallow` dans `robots.txt` (ainsi que `/api/`).
 
-## Pages de modération (`/espace-bureau/actualites/moderation`)
+## Pages de modération (`/espace-bureau/moderation`)
 
-Pages `noindex` du groupe `(hub)`, réservées à l'admin (`requireModerationPage`, `lib/hub/page-guards.ts`), rendues côté client et alimentées par `/api/admin/submissions*`. `/espace-bureau/actualites/moderation` liste les saisies (« À traiter » / « Traitées ») ; `/espace-bureau/actualites/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Les liens des alertes de relecture pointent vers ces nouvelles URL. Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire avec comptes fictifs créés par `scripts/hub-create-admin.mjs`, captures dans `SHOTS_DIR`).
+Pages `noindex` du groupe `(hub)`, réservées aux modérateurs (admin ou droit « moderation » ; `requireModerationPage`, `lib/hub/page-guards.ts`), rendues côté client et alimentées par `/api/admin/submissions*`. `/espace-bureau/moderation` liste les saisies (« À traiter » / « Traitées ») ; `/espace-bureau/moderation/<id>` est le lien stable du détail (original/corrigé avec différences mot à mot, avis, aperçu, chronologie, actions avec confirmation et motif de rejet obligatoire, saisie suivante proposée). Les liens des alertes de relecture pointent vers ces nouvelles URL. Parcours de test : `PLAYWRIGHT_CORE=<chemin playwright-core> node scripts/e2e-moderation.mjs` (après `next build`, DATA_DIR temporaire avec comptes fictifs créés par `scripts/hub-create-admin.mjs`, captures dans `SHOTS_DIR`).
 
 `parseReview` est asynchrone : il refuse une `corrected.image` introuvable (comme `createSubmission`).
+
+### Droit de modération (décision du 25/11/2026)
+
+Droit **individuel** `moderator` (booléen facultatif dans `users.json`, absent = pas de droit), distinct des modules et des droits de groupe. L'administrateur modère toujours ; un membre seulement si l'administrateur coche « Peut modérer les actualités et l'agenda » (création ou fenêtre « Modifier » ; pastille « Modération » dans le tableau). Valeur validée (booléen strict) et journalisée (`user.create` / `user.update`, `moderation=oui|non`).
+
+- Garde serveur `requireModerator()` (`lib/hub/guards.ts`, `checkModerator` dans `access.ts`) : admin OU droit ; utilisée sur **toutes** les routes `/api/admin/submissions*` (liste, détail, publish, reject) et par `requireModerationPage`. Les routes de relecture agent (Bearer) sont inchangées. Comptes, groupes, drive et journal restent `requireAdmin` : un modérateur n'y accède pas.
+- Poser le droit en production : `DATA_DIR=/var/lib/succieu-web node scripts/hub-set-moderator.mjs <identifiant> [--off]` (idempotent, écriture atomique, mode conservé, journalisé, aucun appel au drive).
+- Tests : `lib/hub/moderation-right.test.ts`.

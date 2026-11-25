@@ -128,10 +128,10 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "fr-FR" });
   await ctx.addCookies(sessionCookies(adminCookie));
   const page = await ctx.newPage();
-  const detailUrl = `${BASE}/espace-bureau/actualites/moderation/${art.id}`;
+  const detailUrl = `${BASE}/espace-bureau/moderation/${art.id}`;
 
   // Ancienne URL : redirigée vers la nouvelle.
-  await page.goto(`${BASE}/espace-bureau/moderation/${art.id}`);
+  await page.goto(`${BASE}/espace-bureau/actualites/moderation/${art.id}`);
   await page.getByRole("heading", { name: "Fete du village samedi", level: 2 }).waitFor();
   assert.equal(page.url(), detailUrl, "redirection de l'ancienne URL");
   assert.match(await page.locator("body").innerText(), /Accents manquants/);
