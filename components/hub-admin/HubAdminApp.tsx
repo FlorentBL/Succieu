@@ -7,6 +7,7 @@ import { Modal } from "@/components/salle-des-fetes/Modal";
 import { btnDanger, btnPrimary, btnSecondary } from "@/components/moderation/ui";
 import { CATEGORY_LABEL, HUB_CATEGORIES, categorySummary, displayCategory, groupByCategory, type DisplayCategory, type HubCategory } from "@/lib/hub/categories";
 import { ACCESS_LEVELS, HUB_MODULES, type AccessLevel } from "@/lib/hub/modules";
+import { noticeText } from "@/lib/hub/notice";
 import { ACTION_LABEL, call, formatDate, type AdminUser, type AuditLine, type DriveOutcome, type DriveRow, type Rights } from "./api";
 
 const LEVEL_LABEL: Record<AccessLevel, string> = { none: "Aucun", read: "Lecture", write: "Écriture" };
@@ -117,8 +118,8 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
     setError("");
     setNotice("");
     try {
-      const msg = await fn();
-      setNotice(msg || ok);
+      const msg: unknown = await fn();
+      setNotice(noticeText(msg, ok));
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action impossible.");
@@ -228,7 +229,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
           self={selected.id === selfId}
           driveEnabled={driveEnabled}
           onClose={closeEdit}
-          onSave={(patch) => act(() => call(`/api/admin/users/${selected.id}`, "PATCH", patch), "Modifications enregistrées.")}
+          onSave={(patch) => act(async () => { await call<unknown>(`/api/admin/users/${selected.id}`, "PATCH", patch); }, "Modifications enregistrées.")}
           onActive={(active) =>
             act(async () => {
               const r = await call<{ drive: DriveOutcome }>(`/api/admin/users/${selected.id}/active`, "POST", { active });
