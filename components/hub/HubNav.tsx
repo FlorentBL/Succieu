@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { focusRing } from "@/components/bureau/fields";
 import { TextSizeControl } from "./TextSize";
 
@@ -21,10 +22,34 @@ export function HubNav({ items, displayName }: { items: NavItem[]; displayName: 
   const droite = items.filter(cote);
   const prenom = displayName.trim().split(/\s+/)[0] || displayName;
   const compteActif = droite.some((i) => isActive(pathname, i.href));
-  const lien = (i: NavItem, dansMenu = false) => {
+  const menuRef = useRef<HTMLDetailsElement>(null);
+  // Referme le menu du compte : changement de page, Échap (focus rendu au résumé), clic hors du menu.
+  useEffect(() => {
+    menuRef.current?.removeAttribute("open");
+  }, [pathname]);
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && el.open) {
+        el.removeAttribute("open");
+        el.querySelector("summary")?.focus();
+      }
+    };
+    const onPointer = (e: PointerEvent) => {
+      if (el.open && !el.contains(e.target as Node)) el.removeAttribute("open");
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, []);
+  const lien = (i: NavItem, dansMenu = false, classeLi?: string) => {
     const active = isActive(pathname, i.href);
     return (
-      <li key={`${dansMenu ? "m" : "l"}${i.href}`} className={dansMenu ? undefined : undefined}>
+      <li key={`${dansMenu ? "m" : "l"}${i.href}`} className={classeLi}>
         <Link
           href={i.href}
           aria-current={active ? "page" : undefined}
@@ -47,12 +72,10 @@ export function HubNav({ items, displayName }: { items: NavItem[]; displayName: 
             <ul className="flex flex-wrap gap-x-0.5">{gauche.map((i) => lien(i))}</ul>
             <ul className="flex flex-wrap items-center gap-x-0.5 lg:flex-nowrap">
               {droite.map((i) => (
-                <span key={i.href} className="contents lg:hidden">
-                  {lien(i)}
-                </span>
+                lien(i, false, "lg:hidden")
               ))}
               <li className="hidden lg:block">
-                <details className="group relative">
+                <details ref={menuRef} className="relative">
                   <summary
                     className={`flex min-h-11 cursor-pointer list-none items-center gap-1 whitespace-nowrap rounded-full px-2 text-[0.95rem] font-medium hover:bg-pre-pale xl:px-3 ${focusRing} ${compteActif ? "text-ink" : "text-ink-muted"}`}
                   >
