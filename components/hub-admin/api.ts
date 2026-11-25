@@ -32,7 +32,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function call<T>(path: string, method: "GET" | "POST" | "PATCH" = "GET", body?: unknown): Promise<T> {
+export async function call<T>(path: string, method: "GET" | "POST" | "PATCH" | "PUT" = "GET", body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -58,6 +58,8 @@ export const ACTION_LABEL: Record<string, string> = {
   "login.blocked": "Connexion bloquée (trop d'essais)",
   "user.create": "Compte créé",
   "user.update": "Rôle ou droits modifiés",
+  "user.group-apply": "Droits posés d'après le modèle de la catégorie",
+  "group.template": "Modèle de droits d'une catégorie enregistré",
   "user.enable": "Compte réactivé",
   "user.disable": "Compte désactivé",
   "user.reset-password": "Mot de passe réinitialisé",

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/salle-des-fetes/Modal";
 import { btnDanger, btnPrimary, btnSecondary } from "@/components/moderation/ui";
 import { CATEGORY_LABEL, HUB_CATEGORIES, categorySummary, displayCategory, groupByCategory, type DisplayCategory, type HubCategory } from "@/lib/hub/categories";
+import { isCustomized, membersOf, planApply, type ApplyPlan, type GroupTemplates } from "@/lib/hub/group-rights";
 import { ACCESS_LEVELS, HUB_MODULES, type AccessLevel } from "@/lib/hub/modules";
 import { ACTION_LABEL, call, formatDate, type AdminUser, type AuditLine, type DriveOutcome, type DriveRow, type Rights } from "./api";
 
@@ -83,6 +84,8 @@ function shortDate(iso: string | null): string {
 export function HubAdminApp({ selfId }: { selfId: string }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [driveEnabled, setDriveEnabled] = useState(false);
+  const [templates, setTemplates] = useState<GroupTemplates | null>(null);
+  const [savedTemplates, setSavedTemplates] = useState<HubCategory[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [secret, setSecret] = useState<Secret | null>(null);
@@ -102,6 +105,9 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       const r = await call<{ users: AdminUser[]; driveSync: boolean }>("/api/admin/users");
       setUsers(r.users);
       setDriveEnabled(r.driveSync);
+      const g = await call<{ templates: GroupTemplates; saved: HubCategory[] }>("/api/admin/groups");
+      setTemplates(g.templates);
+      setSavedTemplates(g.saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Chargement impossible.");
     } finally {
@@ -146,6 +152,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       {secret && <div ref={secretRef} className="scroll-mt-24"><SecretCard secret={secret} onClose={() => setSecret(null)} /></div>}
       <CreateForm
         driveEnabled={driveEnabled}
+        templates={templates}
         onCreated={(u, pw, drive) => {
           setSecret({ who: `${u.displayName} (${u.identifier})`, password: pw, kind: "création", drive });
           setNotice("Compte créé.");
@@ -153,6 +160,9 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
         }}
         onError={setError}
       />
+      {templates && (
+        <GroupsPanel users={users} templates={templates} saved={savedTemplates} act={act} onError={setError} />
+      )}
       <section aria-labelledby="comptes" className="space-y-3">
         <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">{loaded ? `Comptes (${users.length})` : "Chargement des comptes…"}</h2>
         <p className="text-ink-muted" data-testid="accounts-summary">
@@ -190,6 +200,9 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                     <th scope="row" className={`${td} sticky left-0 z-10 text-left ${rowBg}`}>
                       <span className="block font-bold">{u.displayName}{u.id === selfId && " (vous)"}</span>
                       <span className="block text-xs font-normal text-ink-muted">{u.identifier}{u.driveLogin !== null && u.driveLogin !== u.identifier && ` · drive : ${u.driveLogin}`}</span>
+                      {templates && isCustomized(u, templates) && (
+                        <span className={`${chip} mt-0.5 bg-canvas font-medium text-ink-muted ring-1 ring-inset ring-border-subtle`} data-testid="custom-mark" title="Droits différents du modèle de la catégorie">personnalisé</span>
+                      )}
                     </th>
                     <td className={td}>
                       <CategoryChip category={displayCategory(u)} />
@@ -250,6 +263,93 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       {driveEnabled && <DrivePanel users={users} onChanged={reload} />}
       <AuditPanel users={users} />
     </div>
+  );
+}
+
+const OF_CATEGORY: Record<HubCategory, string> = { bureau: "du Bureau", conseil: "du Conseil", secretariat: "du Secrétariat" };
+
+function PlanPreview({ plan }: { plan: ApplyPlan }) {
+  const n = plan.unchanged.length;
+  return (
+    <div data-testid="apply-preview">
+      {plan.changed.length === 0 ? <p>Aucun changement : tous les comptes sont déjà conformes.</p> : (
+        <ul className="list-disc space-y-1 pl-5">
+          {plan.changed.map((p) => (
+            <li key={p.id}><strong>{p.displayName}</strong> : {p.changes.map((c) => `${SHORT_MODULE[c.module] ?? c.module} ${LEVEL_LABEL[c.from]} → ${LEVEL_LABEL[c.to]}`).join(", ")}</li>
+          ))}
+        </ul>
+      )}
+      {n > 0 && plan.changed.length > 0 && <p className="mt-2 text-ink-muted">{n} compte{n > 1 ? "s" : ""} déjà conforme{n > 1 ? "s" : ""}.</p>}
+    </div>
+  );
+}
+
+/** Une ligne par catégorie : modèle de droits, « Enregistrer », « Appliquer à tous les membres ». */
+function GroupRow({ category, users, template, saved, act, onError }: {
+  category: HubCategory; users: AdminUser[]; template: Rights; saved: boolean;
+  act: (fn: () => Promise<string | void>, ok: string) => Promise<void>; onError: (m: string) => void;
+}) {
+  const [draft, setDraft] = useState<Rights>(template);
+  const [confirming, setConfirming] = useState(false);
+  const members = membersOf(users, category);
+  const N = members.length;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(template);
+  const plan = planApply(users, category, template);
+  const label = CATEGORY_LABEL[category];
+  return (
+    <div className="rounded-xl border border-border-subtle p-4" data-testid={`group-row-${category}`}>
+      <h3 className="font-display text-lg font-bold text-moss-dark">{label} · {N}</h3>
+      {!saved && <p className="text-sm text-ink-muted">Proposition d&apos;après les droits les plus fréquents du groupe (pas encore enregistrée).</p>}
+      <div className="mt-2"><RightsGrid name={`grp-${category}`} rights={draft} onChange={(r) => { setDraft(r); setConfirming(false); }} /></div>
+      <div className="mt-3 flex flex-wrap gap-3">
+        <button type="button" className={btnSecondary} disabled={!dirty && saved}
+          onClick={() => void act(async () => { await call("/api/admin/groups", "PUT", { category, rights: draft }); }, `Modèle ${label} enregistré. Il n'a encore été appliqué à personne.`)}>
+          Enregistrer le modèle
+        </button>
+        <button type="button" className={btnPrimary} disabled={N === 0 || dirty || !saved} aria-expanded={confirming} onClick={() => setConfirming(true)}>
+          {N === 1 ? `Appliquer au membre ${OF_CATEGORY[category]}` : `Appliquer aux ${N} membres ${OF_CATEGORY[category]}`}
+        </button>
+      </div>
+      {(dirty || !saved) && N > 0 && <p className="mt-2 text-sm text-ink-muted">Enregistrez d&apos;abord le modèle pour pouvoir l&apos;appliquer.</p>}
+      {confirming && (
+        <div role="alertdialog" aria-label="Confirmation" className="mt-4 rounded-xl border-2 border-moss bg-pre-pale p-4">
+          <p className="font-semibold">Appliquer ce modèle à {N} compte{N > 1 ? "s" : ""} {OF_CATEGORY[category]} ? Les administrateurs ne sont jamais modifiés.</p>
+          <div className="mt-2"><PlanPreview plan={plan} /></div>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button type="button" className={btnPrimary} autoFocus disabled={plan.changed.length === 0}
+              onClick={() => {
+                setConfirming(false);
+                void act(async () => {
+                  try {
+                    const r = await call<ApplyPlan>("/api/admin/groups/apply", "POST", { category });
+                    return `${r.changed.length} compte${r.changed.length > 1 ? "s" : ""} modifié${r.changed.length > 1 ? "s" : ""}, ${r.unchanged.length} déjà conforme${r.unchanged.length > 1 ? "s" : ""}.`;
+                  } catch (e) {
+                    onError(e instanceof Error ? e.message : "Application impossible.");
+                  }
+                }, "");
+              }}>
+              Confirmer
+            </button>
+            <button type="button" className={btnSecondary} onClick={() => setConfirming(false)}>Annuler</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GroupsPanel({ users, templates, saved, act, onError }: {
+  users: AdminUser[]; templates: GroupTemplates; saved: HubCategory[];
+  act: (fn: () => Promise<string | void>, ok: string) => Promise<void>; onError: (m: string) => void;
+}) {
+  return (
+    <Card className={card}><section aria-labelledby="groupes" className="space-y-4">
+      <h2 id="groupes" className="font-display text-2xl font-bold text-moss-dark">Droits par catégorie</h2>
+      <p className="text-ink-muted">Réglez les droits d&apos;une catégorie, enregistrez le modèle, puis appliquez-le à tous ses membres d&apos;un coup. Les droits restent propres à chaque personne : vous pouvez toujours en ajuster un seul avec « Modifier » (le tableau signale alors « personnalisé »). Les administrateurs ne sont jamais touchés ; le drive non plus.</p>
+      {HUB_CATEGORIES.map((c) => (
+        <GroupRow key={`${c}-${JSON.stringify(templates[c])}-${saved.includes(c)}`} category={c} users={users} template={templates[c]} saved={saved.includes(c)} act={act} onError={onError} />
+      ))}
+    </section></Card>
   );
 }
 
@@ -319,7 +419,7 @@ function RightsGrid({ rights, onChange, disabled, name }: { rights: Rights; onCh
   );
 }
 
-function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolean; onCreated: (u: AdminUser, pw: string, drive: DriveOutcome) => void; onError: (m: string) => void }) {
+function CreateForm({ driveEnabled, templates, onCreated, onError }: { driveEnabled: boolean; templates: GroupTemplates | null; onCreated: (u: AdminUser, pw: string, drive: DriveOutcome) => void; onError: (m: string) => void }) {
   const [open, setOpen] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -347,7 +447,7 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
     }
   }
 
-  if (!open) return <button type="button" className={btnPrimary} onClick={() => setOpen(true)}>+ Créer un compte</button>;
+  if (!open) return <button type="button" className={btnPrimary} onClick={() => { setRights(templates ? { ...templates[category] } : emptyRights()); setOpen(true); }}>+ Créer un compte</button>;
   return (
     <Card className={card}><form onSubmit={submit}>
       <h2 className="font-display text-xl font-bold text-moss-dark">Nouveau compte</h2>
@@ -374,8 +474,8 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
         <option value="admin">Administrateur (tous les droits)</option>
       </select>
       <label htmlFor={`${id}-c`} className="mt-4 block font-semibold">Catégorie</label>
-      <CategorySelect id={`${id}-c`} className={input} value={category} onChange={setCategory} />
-      <p className="mt-1 text-sm text-ink-muted">Simple étiquette : elle ne change aucun droit. Un administrateur s&apos;affiche toujours « Admin ».</p>
+      <CategorySelect id={`${id}-c`} className={input} value={category} onChange={(c) => { setCategory(c); if (templates) setRights({ ...templates[c] }); }} />
+      <p className="mt-1 text-sm text-ink-muted">Choisir une catégorie propose les droits du modèle de cette catégorie ; vous pouvez les modifier ci-dessous avant de créer le compte. Un administrateur s&apos;affiche toujours « Admin ».</p>
       <h3 className="mt-5 font-semibold">Droits par module</h3>
       {role === "admin" ? <p className="text-ink-muted">Un administrateur a l&apos;écriture partout.</p> : <RightsGrid name="new" rights={rights} onChange={setRights} />}
       <PasswordChooser name="new" value={pw} onChange={setPw} />
