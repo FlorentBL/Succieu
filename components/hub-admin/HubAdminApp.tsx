@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { focusRing } from "@/components/bureau/fields";
 import { Card } from "@/components/ui/Card";
+import { Modal } from "@/components/salle-des-fetes/Modal";
 import { btnDanger, btnPrimary, btnSecondary } from "@/components/moderation/ui";
 import { ACCESS_LEVELS, HUB_MODULES, type AccessLevel } from "@/lib/hub/modules";
 import { ACTION_LABEL, call, formatDate, type AdminUser, type AuditLine, type DriveOutcome, type DriveRow, type Rights } from "./api";
@@ -50,6 +51,15 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
   const [notice, setNotice] = useState("");
   const [secret, setSecret] = useState<Secret | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const secretRef = useRef<HTMLDivElement>(null);
+
+  const closeEdit = useCallback(() => {
+    setEditing((id) => {
+      if (id) setTimeout(() => document.getElementById(`modifier-${id}`)?.focus(), 0);
+      return null;
+    });
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -58,9 +68,14 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       setDriveEnabled(r.driveSync);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Chargement impossible.");
+    } finally {
+      setLoaded(true);
     }
   }, []);
   useEffect(() => void reload(), [reload]);
+  useEffect(() => {
+    if (secret) secretRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [secret]);
 
   async function act(fn: () => Promise<string | void>, ok: string) {
     setError("");
@@ -77,18 +92,22 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
 
   const selected = users.find((u) => u.id === editing) ?? null;
 
+  const messages = (
+    <div aria-live="polite">
+      {error && <p role="alert" className="rounded-xl bg-tuile-pale p-3 font-medium text-tuile">{error}</p>}
+      {notice && <p role="status" className="rounded-xl bg-pre-pale p-3 font-medium text-moss-dark">{notice}</p>}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div aria-live="polite">
-        {error && <p role="alert" className="rounded-xl bg-tuile-pale p-3 font-medium text-tuile">{error}</p>}
-        {notice && <p role="status" className="rounded-xl bg-pre-pale p-3 font-medium text-moss-dark">{notice}</p>}
-      </div>
+      {!selected && messages}
       <p className={`rounded-xl p-3 ${driveEnabled ? "bg-pre-pale text-moss-dark" : "bg-canvas text-ink-muted"}`} data-testid="drive-banner">
         {driveEnabled
           ? "Drive synchronisé : le mot de passe attribué ici est le même sur le site et sur le drive."
           : "Synchronisation avec le drive désactivée (variables DRIVE_URL, DRIVE_ADMIN_USER et DRIVE_ADMIN_PASSWORD absentes) : les comptes du hub fonctionnent seuls."}
       </p>
-      {secret && <SecretCard secret={secret} onClose={() => setSecret(null)} />}
+      {secret && <div ref={secretRef} className="scroll-mt-24"><SecretCard secret={secret} onClose={() => setSecret(null)} /></div>}
       <CreateForm
         driveEnabled={driveEnabled}
         onCreated={(u, pw, drive) => {
@@ -99,7 +118,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
         onError={setError}
       />
       <section aria-labelledby="comptes" className="space-y-3">
-        <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">Comptes ({users.length})</h2>
+        <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">{loaded ? `Comptes (${users.length})` : "Chargement des comptes…"}</h2>
         <div className="overflow-x-auto rounded-2xl border border-border-subtle bg-surface">
           <table className="w-full min-w-[56rem] border-collapse text-base">
             <thead className="border-b border-border-subtle bg-canvas">
@@ -129,8 +148,8 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                     <td className={`${td} text-sm ${d.tone}`} title={u.driveSync?.error}>{d.label}</td>
                     <td className={`${td} text-sm`}>{formatDate(u.lastLogin)}</td>
                     <td className={td}>
-                      <button type="button" className={btnSecondary} aria-expanded={editing === u.id} aria-label={`Modifier ${u.displayName}`}
-                        onClick={() => setEditing(editing === u.id ? null : u.id)}>
+                      <button type="button" id={`modifier-${u.id}`} className={btnSecondary} aria-haspopup="dialog" aria-expanded={editing === u.id} aria-label={`Modifier ${u.displayName}`}
+                        onClick={() => setEditing(u.id)}>
                         Modifier
                       </button>
                     </td>
@@ -142,12 +161,14 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
         </div>
       </section>
       {selected && (
+        <Modal labelledBy="hub-edit-titre" onClose={closeEdit}>
+        {messages}
         <EditPanel
           key={selected.id}
           user={selected}
           self={selected.id === selfId}
           driveEnabled={driveEnabled}
-          onClose={() => setEditing(null)}
+          onClose={closeEdit}
           onSave={(patch) => act(() => call(`/api/admin/users/${selected.id}`, "PATCH", patch), "Modifications enregistrées.")}
           onActive={(active) =>
             act(async () => {
@@ -160,10 +181,12 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
             act(async () => {
               const r = await call<{ password: string; drive: DriveOutcome }>(`/api/admin/users/${selected.id}/reset-password`, "POST", choice);
               setSecret({ who: `${selected.displayName} (${selected.identifier})`, password: r.password, kind: "réinitialisation", drive: r.drive });
+              closeEdit();
               return "Mot de passe réinitialisé.";
             }, "")
           }
         />
+        </Modal>
       )}
       {driveEnabled && <DrivePanel users={users} onChanged={reload} />}
       <AuditPanel users={users} />
@@ -317,9 +340,9 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
   const [pending, setPending] = useState<{ msg: string; fn: () => void } | null>(null);
   const confirmThen = (msg: string, fn: () => void) => () => setPending({ msg, fn });
   return (
-    <Card className={card}><section aria-label={`Modifier ${user.displayName}`}>
+    <section aria-labelledby="hub-edit-titre">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-display text-xl font-bold text-moss-dark">{user.displayName}{self && " (vous)"} — {user.identifier}</h2>
+        <h2 id="hub-edit-titre" className="font-display text-xl font-bold text-moss-dark">{user.displayName}{self && " (vous)"} — {user.identifier}</h2>
         <button type="button" className={btnSecondary} onClick={onClose}>Fermer</button>
       </div>
       {user.driveSync?.error && <p role="alert" className="mt-2 rounded-xl bg-tuile-pale p-3 text-tuile">Dernière synchro avec le drive en erreur : {user.driveSync.error}</p>}
@@ -372,7 +395,7 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
           <button type="submit" className={`${btnPrimary} mt-3`}>Attribuer ce mot de passe</button>
         </form>
       )}
-    </section></Card>
+    </section>
   );
 }
 
@@ -388,14 +411,18 @@ const DRIVE_STATUS: Record<DriveRow["status"], string> = {
 function DrivePanel({ users, onChanged }: { users: AdminUser[]; onChanged: () => void }) {
   const [rows, setRows] = useState<DriveRow[] | null>(null);
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const id = useId();
   const load = useCallback(async () => {
     setErr("");
+    setLoading(true);
     try {
       setRows((await call<{ enabled: boolean; rows: DriveRow[] }>("/api/admin/drive")).rows);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Lecture du drive impossible.");
+    } finally {
+      setLoading(false);
     }
   }, []);
   async function attach(driveLogin: string) {
@@ -412,8 +439,9 @@ function DrivePanel({ users, onChanged }: { users: AdminUser[]; onChanged: () =>
   return (
     <Card className={card}><section aria-labelledby={id}>
       <h2 id={id} className="font-display text-2xl font-bold text-moss-dark">Comptes du drive</h2>
+      {loading && <p role="status" className="mt-1 text-ink-muted">Chargement des comptes du drive…</p>}
       <p className="mt-1 text-ink-muted">Comparaison en lecture seule entre le hub et le drive. Les espaces et leurs permissions se gèrent dans le drive, jamais ici.</p>
-      <button type="button" className={`${btnSecondary} mt-3`} onClick={load}>{rows ? "Actualiser la comparaison" : "Comparer avec le drive"}</button>
+      <button type="button" className={`${btnSecondary} mt-3`} disabled={loading} onClick={load}>{rows ? "Actualiser la comparaison" : "Comparer avec le drive"}</button>
       {err && <p role="alert" className="mt-3 text-tuile">{err}</p>}
       {rows && (
         <div className="mt-4 overflow-x-auto">
