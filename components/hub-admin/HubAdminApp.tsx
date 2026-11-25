@@ -91,12 +91,20 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
   const [notice, setNotice] = useState("");
   const [secret, setSecret] = useState<Secret | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [groupEditing, setGroupEditing] = useState<HubCategory | null>(null);
   const [loaded, setLoaded] = useState(false);
   const secretRef = useRef<HTMLDivElement>(null);
 
   const closeEdit = useCallback(() => {
     setEditing((id) => {
       if (id) setTimeout(() => document.getElementById(`modifier-${id}`)?.focus(), 0);
+      return null;
+    });
+  }, []);
+
+  const closeGroup = useCallback(() => {
+    setGroupEditing((c) => {
+      if (c) setTimeout(() => document.getElementById(`droits-groupe-${c}`)?.focus(), 0);
       return null;
     });
   }, []);
@@ -144,7 +152,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
 
   return (
     <div className="space-y-6">
-      {!selected && messages}
+      {!selected && !groupEditing && messages}
       <p className={`rounded-xl p-3 ${driveEnabled ? "bg-pre-pale text-moss-dark" : "bg-canvas text-ink-muted"}`} data-testid="drive-banner">
         {driveEnabled
           ? "Drive synchronisé : le mot de passe attribué ici est le même sur le site et sur le drive."
@@ -161,9 +169,6 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
         }}
         onError={setError}
       />
-      {templates && (
-        <GroupsPanel users={users} templates={templates} saved={savedTemplates} act={act} onError={setError} />
-      )}
       <section aria-labelledby="comptes" className="space-y-3">
         <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">{loaded ? `Comptes (${users.length})` : "Chargement des comptes…"}</h2>
         <p className="text-ink-muted" data-testid="accounts-summary">
@@ -191,7 +196,24 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
               {groupByCategory(users).map((g) => (
               <Fragment key={g.category}>
               <tr className="bg-canvas" data-testid={`group-${g.category}`}>
-                <th scope="colgroup" colSpan={HUB_MODULES.length + 6} className="px-3 py-1.5 text-left text-sm font-bold text-moss-dark">{CATEGORY_LABEL[g.category]} · {g.users.length}</th>
+                <th scope="colgroup" colSpan={HUB_MODULES.length + 6} className="px-3 py-1.5 text-left text-sm font-bold text-moss-dark">
+                  <span className="sticky left-3 inline-flex max-w-[calc(100vw-3rem)] flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>{CATEGORY_LABEL[g.category]} · {g.users.length}</span>
+                    {g.category !== "admin" && templates && (
+                      <>
+                        <span className="inline-flex items-center gap-1 font-normal" data-testid={`group-model-${g.category}`}>
+                          {savedTemplates.includes(g.category as HubCategory)
+                            ? HUB_MODULES.map((m) => <RightChip key={m.id} level={templates[g.category as HubCategory][m.id]} label={SHORT_MODULE[m.id] ?? m.label} />)
+                            : <span className="text-ink-muted">modèle non enregistré</span>}
+                        </span>
+                        <button type="button" id={`droits-groupe-${g.category}`} className={`${btnSecondary} !min-h-9 !px-3 !py-1 !text-sm`} aria-haspopup="dialog"
+                          aria-label={`Droits du groupe ${CATEGORY_LABEL[g.category]}`} onClick={() => setGroupEditing(g.category as HubCategory)}>
+                          Droits du groupe
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </th>
               </tr>
               {g.users.map((u) => {
                 const d = driveState(u, driveEnabled);
@@ -261,6 +283,19 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
         />
         </Modal>
       )}
+      {groupEditing && templates && (
+        <Modal labelledBy="hub-groupe-titre" onClose={closeGroup}>
+          {messages}
+          <h2 id="hub-groupe-titre" className="font-display text-xl font-bold text-moss-dark">Droits du groupe {CATEGORY_LABEL[groupEditing]}</h2>
+          <p className="mt-1 text-ink-muted">Réglez le modèle, enregistrez-le, puis appliquez-le à tous les membres d&apos;un coup. Les droits restent propres à chaque personne : « Modifier » dans le tableau permet d&apos;en ajuster un seul. Les administrateurs et le drive ne sont jamais touchés.</p>
+          <GroupRow
+            key={`${groupEditing}-${JSON.stringify(templates[groupEditing])}-${savedTemplates.includes(groupEditing)}`}
+            category={groupEditing} users={users} template={templates[groupEditing]} saved={savedTemplates.includes(groupEditing)}
+            act={act} onError={setError} onApplied={closeGroup}
+          />
+          <div className="mt-4 flex justify-end"><button type="button" className={btnSecondary} onClick={closeGroup}>Fermer</button></div>
+        </Modal>
+      )}
       {driveEnabled && <DrivePanel users={users} onChanged={reload} />}
       <AuditPanel users={users} />
     </div>
@@ -286,8 +321,8 @@ function PlanPreview({ plan }: { plan: ApplyPlan }) {
 }
 
 /** Une ligne par catégorie : modèle de droits, « Enregistrer », « Appliquer à tous les membres ». */
-function GroupRow({ category, users, template, saved, act, onError }: {
-  category: HubCategory; users: AdminUser[]; template: Rights; saved: boolean;
+function GroupRow({ category, users, template, saved, act, onError, onApplied }: {
+  category: HubCategory; users: AdminUser[]; template: Rights; saved: boolean; onApplied: () => void;
   act: (fn: () => Promise<string | void>, ok: string) => Promise<void>; onError: (m: string) => void;
 }) {
   const [draft, setDraft] = useState<Rights>(template);
@@ -298,8 +333,8 @@ function GroupRow({ category, users, template, saved, act, onError }: {
   const plan = planApply(users, category, template);
   const label = CATEGORY_LABEL[category];
   return (
-    <div className="rounded-xl border border-border-subtle p-4" data-testid={`group-row-${category}`}>
-      <h3 className="font-display text-lg font-bold text-moss-dark">{label} · {N}</h3>
+    <div className="mt-3 rounded-xl border border-border-subtle p-4" data-testid={`group-row-${category}`}>
+      <p className="font-semibold text-moss-dark">{label} · {N} membre{N > 1 ? "s" : ""}</p>
       {!saved && <p className="text-sm text-ink-muted">Proposition d&apos;après les droits les plus fréquents du groupe (pas encore enregistrée).</p>}
       <div className="mt-2"><RightsGrid name={`grp-${category}`} rights={draft} onChange={(r) => { setDraft(r); setConfirming(false); }} /></div>
       <div className="mt-3 flex flex-wrap gap-3">
@@ -323,6 +358,7 @@ function GroupRow({ category, users, template, saved, act, onError }: {
                 void act(async () => {
                   try {
                     const r = await call<ApplyPlan>("/api/admin/groups/apply", "POST", { category });
+                    onApplied();
                     return `${r.changed.length} compte${r.changed.length > 1 ? "s" : ""} modifié${r.changed.length > 1 ? "s" : ""}, ${r.unchanged.length} déjà conforme${r.unchanged.length > 1 ? "s" : ""}.`;
                   } catch (e) {
                     onError(e instanceof Error ? e.message : "Application impossible.");
@@ -336,21 +372,6 @@ function GroupRow({ category, users, template, saved, act, onError }: {
         </div>
       )}
     </div>
-  );
-}
-
-function GroupsPanel({ users, templates, saved, act, onError }: {
-  users: AdminUser[]; templates: GroupTemplates; saved: HubCategory[];
-  act: (fn: () => Promise<string | void>, ok: string) => Promise<void>; onError: (m: string) => void;
-}) {
-  return (
-    <Card className={card}><section aria-labelledby="groupes" className="space-y-4">
-      <h2 id="groupes" className="font-display text-2xl font-bold text-moss-dark">Droits par catégorie</h2>
-      <p className="text-ink-muted">Réglez les droits d&apos;une catégorie, enregistrez le modèle, puis appliquez-le à tous ses membres d&apos;un coup. Les droits restent propres à chaque personne : vous pouvez toujours en ajuster un seul avec « Modifier » (le tableau signale alors « personnalisé »). Les administrateurs ne sont jamais touchés ; le drive non plus.</p>
-      {HUB_CATEGORIES.map((c) => (
-        <GroupRow key={`${c}-${JSON.stringify(templates[c])}-${saved.includes(c)}`} category={c} users={users} template={templates[c]} saved={saved.includes(c)} act={act} onError={onError} />
-      ))}
-    </section></Card>
   );
 }
 
