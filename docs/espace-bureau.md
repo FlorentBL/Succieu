@@ -152,9 +152,9 @@ Le groupe de routes `(hub)` n'ajoute aucun segment d'URL : son `layout.tsx` exig
 
 ### Module Documents (`/espace-bureau/documents`)
 
-Page courte (`(hub)/documents/page.tsx`, garde `requireModulePage("documents")`, droit ≥ lecture) : explication, bouton « Ouvrir le drive » (`target="_blank" rel="noopener"`) et aide « mot de passe oublié = contacter l'administrateur ». L'URL vient de `BUREAU_DRIVE_URL` (lue côté serveur par `lib/hub/drive.ts`, **https uniquement**, sans identifiants intégrés ; absente ou invalide : repli `https://drive.succieu.fr/`). Aucun appel serveur vers oCIS, aucune donnée partagée, pas d'iframe.
+Page courte (`(hub)/documents/page.tsx`, garde `requireModulePage("documents")`, droit ≥ lecture) : explication (selon `driveLogin` et `driveSyncEnabled()` : mêmes identifiants que le site, repères « Partage Bureau » / « Partage CM » dans « Espaces » ; compte sans drive : accès par le compte de la mairie ; synchro désactivée : texte neutre), bouton « Ouvrir le drive » (`target="_blank" rel="noopener"`) et aide « mot de passe oublié = l'administrateur en attribue un nouveau, valable sur le site et le drive ». L'URL vient de `BUREAU_DRIVE_URL` (lue côté serveur par `lib/hub/drive.ts`, **https uniquement**, sans identifiants intégrés ; absente ou invalide : repli `https://drive.succieu.fr/`). Aucun appel serveur vers oCIS, aucune donnée partagée, pas d'iframe.
 
-**Authentification unique : non faite.** Le drive a ses propres identifiants, attribués par Florent, distincts de ceux du hub ; l'utilisateur se connecte deux fois. Une SSO (OIDC entre le hub et oCIS) serait un chantier séparé.
+**Authentification unique : non faite.** Le compte drive a le même identifiant et le même mot de passe que le hub (synchronisés, attribués par l'administrateur) ; l'utilisateur se connecte tout de même deux fois (une par site). Une SSO (OIDC entre le hub et oCIS) serait un chantier séparé.
 
 ### Ajouter un module
 
