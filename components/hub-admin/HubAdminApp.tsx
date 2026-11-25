@@ -35,6 +35,7 @@ function rightsSummary(u: AdminUser): string {
 }
 
 function driveState(u: AdminUser, enabled: boolean): { label: string; tone: string } {
+  if (u.driveLogin === null) return { label: "Pas de drive", tone: "text-ink-muted" };
   if (!enabled) return { label: "Synchro désactivée", tone: "text-ink-muted" };
   if (u.driveSync?.error) return { label: "Erreur", tone: "text-tuile" };
   if (u.driveSync?.at) return { label: `Synchronisé ${formatDate(u.driveSync.at)}`, tone: "text-moss-dark" };
@@ -119,7 +120,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                 return (
                   <tr key={u.id} className={`${u.active ? "" : "opacity-70"} ${editing === u.id ? "bg-pre-pale" : ""}`}>
                     <th scope="row" className={`${td} font-semibold`}>{u.displayName}{u.id === selfId && " (vous)"}</th>
-                    <td className={td}>{u.identifier}{u.driveLogin !== u.identifier && <span className="block text-sm text-ink-muted">drive : {u.driveLogin}</span>}</td>
+                    <td className={td}>{u.identifier}{u.driveLogin !== null && u.driveLogin !== u.identifier && <span className="block text-sm text-ink-muted">drive : {u.driveLogin}</span>}</td>
                     <td className={td}>{u.role === "admin" ? "Administrateur" : "Membre"}</td>
                     <td className={td}>
                       <span className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${u.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>{u.active ? "Oui" : "Non"}</span>
@@ -242,6 +243,7 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
   const [identifier, setIdentifier] = useState("");
   const [touched, setTouched] = useState(false);
   const [driveLogin, setDriveLogin] = useState("");
+  const [noDrive, setNoDrive] = useState(false);
   const [role, setRole] = useState<"admin" | "membre">("membre");
   const [rights, setRights] = useState<Rights>(emptyRights());
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
@@ -253,10 +255,10 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
     try {
       const r = await call<{ user: AdminUser; password: string; drive: DriveOutcome }>("/api/admin/users", "POST", {
         displayName, identifier: identifier || suggestIdentifier(displayName), role, rights, ...pw,
-        ...(driveLogin.trim() ? { driveLogin: driveLogin.trim() } : {}),
+        ...(noDrive ? { driveLogin: null } : driveLogin.trim() ? { driveLogin: driveLogin.trim() } : {}),
       });
       onCreated(r.user, r.password, r.drive);
-      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setRole("membre"); setRights(emptyRights()); setPw({ passwordMode: "generate" }); setOpen(false);
+      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setNoDrive(false); setRole("membre"); setRights(emptyRights()); setPw({ passwordMode: "generate" }); setOpen(false);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Création impossible.");
     }
@@ -275,8 +277,11 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
       {driveEnabled && (
         <>
           <label htmlFor={`${id}-d`} className="mt-4 block font-semibold">Identifiant du drive (si différent)</label>
-          <input id={`${id}-d`} className={input} maxLength={64} value={driveLogin} autoCapitalize="none" placeholder={identifier || "identique à l'identifiant"}
+          <input id={`${id}-d`} className={input} maxLength={64} value={driveLogin} autoCapitalize="none" placeholder={identifier || "identique à l'identifiant"} disabled={noDrive}
             onChange={(e) => setDriveLogin(e.target.value)} />
+          <label className="mt-2 flex items-center gap-2">
+            <input type="checkbox" checked={noDrive} onChange={(e) => setNoDrive(e.target.checked)} /> Ce compte n&apos;a pas de drive
+          </label>
           <p className="mt-1 text-sm text-ink-muted">Si ce compte existe déjà sur le drive, il est rattaché ; sinon il est créé. Les espaces du drive ne sont jamais modifiés ici.</p>
         </>
       )}
@@ -299,15 +304,16 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
 /** Panneau de modification d'un seul compte à la fois. */
 function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onReset }: {
   user: AdminUser; self: boolean; driveEnabled: boolean; onClose: () => void;
-  onSave: (p: { role?: string; rights?: Rights; driveLogin?: string }) => void;
+  onSave: (p: { role?: string; rights?: Rights; driveLogin?: string | null }) => void;
   onActive: (a: boolean) => void; onReset: (c: PasswordChoice) => void;
 }) {
   const [rights, setRights] = useState<Rights>(user.rights);
   const [role, setRole] = useState(user.role);
-  const [driveLogin, setDriveLogin] = useState(user.driveLogin);
+  const [driveLogin, setDriveLogin] = useState(user.driveLogin ?? "");
+  const [noDrive, setNoDrive] = useState(user.driveLogin === null);
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
   const [showPw, setShowPw] = useState(false);
-  const dirty = role !== user.role || JSON.stringify(rights) !== JSON.stringify(user.rights) || driveLogin !== user.driveLogin;
+  const dirty = role !== user.role || JSON.stringify(rights) !== JSON.stringify(user.rights) || noDrive !== (user.driveLogin === null) || (!noDrive && driveLogin !== (user.driveLogin ?? ""));
   const [pending, setPending] = useState<{ msg: string; fn: () => void } | null>(null);
   const confirmThen = (msg: string, fn: () => void) => () => setPending({ msg, fn });
   return (
@@ -325,9 +331,14 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
           </select>
         </label>
         {driveEnabled && (
-          <label className="font-semibold">Identifiant du drive{" "}
-            <input className={`${input} !mt-1 sm:w-64`} value={driveLogin} maxLength={64} autoCapitalize="none" onChange={(e) => setDriveLogin(e.target.value)} />
-          </label>
+          <div>
+            <label className="font-semibold">Identifiant du drive{" "}
+              <input className={`${input} !mt-1 sm:w-64`} value={driveLogin} maxLength={64} autoCapitalize="none" disabled={noDrive} placeholder={user.identifier} onChange={(e) => setDriveLogin(e.target.value)} />
+            </label>
+            <label className="mt-2 flex items-center gap-2">
+              <input type="checkbox" checked={noDrive} onChange={(e) => setNoDrive(e.target.checked)} /> Ce compte n&apos;a pas de drive
+            </label>
+          </div>
         )}
       </div>
       <h3 className="mt-4 font-semibold">Droits par module</h3>
@@ -343,7 +354,7 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
       )}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={btnPrimary} disabled={!dirty}
-          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, rights, driveLogin }))}>
+          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, rights, driveLogin: noDrive ? null : driveLogin }))}>
           Enregistrer
         </button>
         <button type="button" className={btnSecondary} aria-expanded={showPw} onClick={() => setShowPw((v) => !v)}>Réinitialiser le mot de passe</button>
@@ -397,7 +408,7 @@ function DrivePanel({ users, onChanged }: { users: AdminUser[]; onChanged: () =>
       setErr(e instanceof Error ? e.message : "Rattachement impossible.");
     }
   }
-  const unlinked = users.filter((u) => !rows?.some((r) => r.hub?.id === u.id && r.drive));
+  const unlinked = users.filter((u) => u.driveLogin !== null && !rows?.some((r) => r.hub?.id === u.id && r.drive));
   return (
     <Card className={card}><section aria-labelledby={id}>
       <h2 id={id} className="font-display text-2xl font-bold text-moss-dark">Comptes du drive</h2>

@@ -284,8 +284,11 @@ export type ComparisonRow = {
 export function compareAccounts(users: HubUser[], drive: DriveAccount[]): ComparisonRow[] {
   const byLogin = new Map(drive.map((d) => [d.login, d]));
   const seen = new Set<string>();
-  const rows: ComparisonRow[] = users.map((u) => {
-    const login = driveLoginOf(u).toLowerCase();
+  // Un compte « pas de drive » n'a rien à comparer.
+  const rows: ComparisonRow[] = users.flatMap((u) => {
+    const own = driveLoginOf(u);
+    if (own === null) return [];
+    const login = own.toLowerCase();
     seen.add(login);
     const d = byLogin.get(login) ?? null;
     const hub = { id: u.id, identifier: u.identifier, displayName: u.displayName, active: u.active };
@@ -293,7 +296,7 @@ export function compareAccounts(users: HubUser[], drive: DriveAccount[]): Compar
     if (!d) status = "hub-sans-drive";
     else if (!u.active && d.enabled !== false) status = "desactive-hub-seulement";
     else if (u.active && d.enabled === false) status = "desactive-drive-seulement";
-    return { driveLogin: login, hub, drive: d && { displayName: d.displayName, enabled: d.enabled }, status };
+    return [{ driveLogin: login, hub, drive: d && { displayName: d.displayName, enabled: d.enabled }, status }];
   });
   for (const d of drive) {
     if (!seen.has(d.login)) {

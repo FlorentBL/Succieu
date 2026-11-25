@@ -7,7 +7,7 @@ import {
   generatePassword,
   listUsers,
   normalizeIdentifier,
-  parseDriveLogin,
+  parseDriveLoginOrNone,
   parseRights,
   setDriveState,
   setPassword,
@@ -20,8 +20,8 @@ export type AccountSpec = {
   identifier?: string;
   role?: HubRole;
   rights?: unknown;
-  /** Identifiant du compte drive si différent de l'identifiant (ex. « secretariat »). */
-  driveLogin?: string;
+  /** Identifiant du compte drive si différent de l'identifiant (ex. « secretariat ») ; `null` = pas de compte drive. */
+  driveLogin?: string | null;
 };
 
 export type PlannedAccount = {
@@ -29,7 +29,7 @@ export type PlannedAccount = {
   identifier: string;
   role: HubRole;
   rights: unknown;
-  driveLogin: string;
+  driveLogin: string | null;
 };
 
 export type AccountsReport = {
@@ -77,14 +77,14 @@ export function parseAccountSpecs(input: unknown): PlannedAccount[] {
       throw new AppError("validation_failed", `${where} : rôle invalide (admin ou membre).`);
     }
     parseRights(s.rights); // lève si module ou niveau inconnu
-    const driveLogin = parseDriveLogin(s.driveLogin, identifier);
+    const driveLogin = parseDriveLoginOrNone(s.driveLogin, identifier);
     return { displayName, identifier, role, rights: s.rights, driveLogin };
   });
 }
 
 /** Une personne de la fiche imprimable : un seul identifiant et un seul mot de passe pour le site et le drive. */
 export function sheetBlock(
-  p: { displayName: string; identifier: string; password: string; driveLogin?: string },
+  p: { displayName: string; identifier: string; password: string; driveLogin?: string | null },
   siteUrl: string,
   driveUrl?: string,
 ): string {
@@ -136,7 +136,7 @@ export async function migrateAccounts(
     for (const s of todo) {
       if (byId.has(s.identifier)) report.reset.push(s.identifier);
       else report.created.push({ identifier: s.identifier, role: s.role });
-      if (report.drive) {
+      if (report.drive && s.driveLogin !== null) {
         try {
           (await findDriveAccount(s.driveLogin) ? report.drive.attached : report.drive.created).push(s.driveLogin);
         } catch (e) {
@@ -153,11 +153,11 @@ export async function migrateAccounts(
   try {
     for (const s of todo) {
       const known = byId.get(s.identifier);
-      const login = known ? driveLoginOf(known) : s.driveLogin;
+      const login = known ? driveLoginOf(known) : s.driveLogin; // null = pas de drive : aucune opération drive
       const password = generatePassword();
       let driveState: "created" | "attached" | undefined;
       try {
-        if (sync) driveState = await ensureDriveAccount(login, known?.displayName ?? s.displayName, password);
+        if (sync && login !== null) driveState = await ensureDriveAccount(login, known?.displayName ?? s.displayName, password);
         const by = { actor: "migration" };
         const user = known
           ? await setPassword(known.id, password, by)
@@ -175,14 +175,14 @@ export async function migrateAccounts(
                 by,
               )
             ).user;
-        if (known && sync) await setDriveState(known.id, { driveSync: { at: new Date().toISOString() } }, by);
+        if (known && sync && login !== null) await setDriveState(known.id, { driveSync: { at: new Date().toISOString() } }, by);
         // Écriture immédiate : un arrêt en cours de route ne perd aucun mot de passe déjà posé.
         await fh.appendFile(
-          `${sheetBlock({ displayName: user.displayName, identifier: user.identifier, password, driveLogin: login }, opts.siteUrl ?? "https://succieu.fr", sync ? opts.driveUrl : undefined)}\f\n`,
+          `${sheetBlock({ displayName: user.displayName, identifier: user.identifier, password, driveLogin: login }, opts.siteUrl ?? "https://succieu.fr", sync && login !== null ? opts.driveUrl : undefined)}\f\n`,
         );
         if (known) report.reset.push(s.identifier);
         else report.created.push({ identifier: s.identifier, role: s.role });
-        if (driveState) report.drive![driveState === "created" ? "created" : "attached"].push(login);
+        if (driveState && login !== null) report.drive![driveState === "created" ? "created" : "attached"].push(login);
       } catch (e) {
         if (!(e instanceof AppError) || e.code !== "drive_sync_failed") throw e;
         report.failed.push({ identifier: s.identifier, error: e.message });

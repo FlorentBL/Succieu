@@ -427,3 +427,67 @@ test("garde-fou : le compte administrateur du drive n'est jamais rattachable ni 
   assert.equal(rows[0].technical, true);
   assert.throws(() => parseAccountSpecs([{ displayName: "Faux Admin", driveLogin: "Admin" }]), (e: AppError) => e.code === "validation_failed" && /administrateur technique/.test(e.message));
 });
+
+test("compte « pas de drive » (driveLogin: null) : aucun appel au drive, ni création, ni mot de passe, ni activation, ni rattachement", async () => {
+  driveOn();
+  const a = await admin();
+  const created = await adminCreateUser(a, { displayName: "Isabelle Test", identifier: "isabelle", driveLogin: null });
+  assert.equal(created.user.driveLogin, null);
+  assert.equal(created.drive.status, "disabled");
+  assert.equal(((await getUserById(created.user.id)) as HubUser).driveLogin, null);
+  assert.equal(drive.size, 0);
+  assert.equal(calls.length, 0, "création : aucun appel (ni Konnect ni Graph)");
+
+  const reset = await adminResetPassword(a, created.user.id, {});
+  assert.equal(reset.drive.status, "disabled");
+  assert.ok(await verifyPassword(reset.password, (await getUserByIdentifier("isabelle"))!.passwordHash));
+  assert.equal((await adminSetActive(a, created.user.id, false)).drive.status, "disabled");
+  assert.equal((await adminSetActive(a, created.user.id, true)).user.active, true);
+  assert.equal(await code(adminDriveAttach(a, { userId: created.user.id, driveLogin: "isabelle" })), "validation_failed");
+  assert.equal(drive.size, 0);
+  assert.equal(calls.length, 0, "réinitialisation, activation, rattachement : aucun appel");
+
+  // comparaison : le compte sans drive n'apparaît pas comme « hub sans drive »
+  assert.ok(!(await adminDriveCompare(a)).rows.some((r) => r.hub?.identifier === "isabelle"));
+});
+
+test("réglage « pas de drive » sur un compte existant (admin et script) : posé, retiré, comptes sans champ inchangés", async () => {
+  const a = await admin();
+  const { user } = await adminCreateUser(a, { displayName: "Isabelle Test", identifier: "isabelle" });
+  assert.equal(user.driveLogin, "isabelle");
+  assert.equal((await adminUpdateUser(a, user.id, { driveLogin: null })).driveLogin, null);
+  driveOn();
+  const r = await adminResetPassword(a, user.id, {});
+  assert.equal(r.drive.status, "disabled");
+  assert.equal(calls.length, 0);
+  assert.equal(drive.size, 0);
+  // retour au comportement par défaut (drive = identifiant)
+  assert.equal((await adminUpdateUser(a, user.id, { driveLogin: "" })).driveLogin, "isabelle");
+  assert.equal((await adminResetPassword(a, user.id, {})).drive.status, "created");
+});
+
+test("migration : `\"driveLogin\": null` accepté, aucun appel drive pour ce compte, fiche sans drive", async () => {
+  driveOn();
+  const specs = parseAccountSpecs([
+    { displayName: "Isabelle Test", identifier: "isabelle", driveLogin: null },
+    { displayName: "Alice Test" },
+  ]);
+  assert.equal(specs[0].driveLogin, null);
+  assert.equal(specs[1].driveLogin, "alice");
+  const dry = await migrateAccounts(specs, { apply: false });
+  assert.deepEqual(dry.drive, { created: ["alice"], attached: [] });
+  const sheet = path.join(dir, "fiche-nodrive.txt");
+  await fs.rm(sheet, { force: true });
+  const r = await migrateAccounts(specs, { apply: true, sheetPath: sheet, driveUrl: base });
+  assert.deepEqual(r.drive, { created: ["alice"], attached: [] });
+  assert.equal(drive.has("isabelle"), false);
+  assert.equal((await getUserByIdentifier("isabelle"))!.driveLogin, null);
+  assert.ok(calls.every((c) => !/isabelle/.test(c.path)));
+  const blocks = (await fs.readFile(sheet, "utf8")).split("\f");
+  assert.ok(!/Drive du bureau/.test(blocks.find((b) => b.includes("isabelle"))!));
+  // --reset-all : toujours aucun appel pour elle
+  await fs.rm(sheet);
+  calls.length = 0;
+  await migrateAccounts(specs, { apply: true, sheetPath: sheet, driveUrl: base, resetExisting: true });
+  assert.equal(drive.has("isabelle"), false);
+});
