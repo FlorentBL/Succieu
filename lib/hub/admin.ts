@@ -19,6 +19,7 @@ import {
   listUsers,
   normalizeIdentifier,
   parseDriveLogin,
+  parseDriveLoginOrNone,
   setActive,
   setDriveState,
   setPassword,
@@ -118,13 +119,14 @@ export async function adminCreateUser(admin: HubUser | null, body: unknown, ip?:
     identifier: str(b.identifier),
     role: b.role as "admin" | "membre" | undefined,
     rights: b.rights,
-    driveLogin: str(b.driveLogin),
+    driveLogin: b.driveLogin === null ? null : str(b.driveLogin),
     password: chosenPassword(b),
   });
   await assertIdentifierFree(v.identifier);
-  const login = v.driveLogin ?? v.identifier;
+  const login = v.driveLogin === undefined ? v.identifier : v.driveLogin;
   let drive: DriveOutcome = { status: "disabled" };
-  if (driveSyncEnabled()) {
+  // login === null : pas de compte drive, aucune opération drive.
+  if (login !== null && driveSyncEnabled()) {
     drive = { status: await ensureDriveAccount(login, v.displayName, v.password) };
   }
   const { user, password } = await createUser(
@@ -151,7 +153,7 @@ export async function adminUpdateUser(admin: HubUser | null, id: string, body: u
   const by = actorOf(a, ip);
   const current = await getUserById(id);
   if (!current) throw new AppError("not_found", "Compte introuvable.");
-  const login = b.driveLogin === undefined ? undefined : parseDriveLogin(b.driveLogin, current.identifier);
+  const login = b.driveLogin === undefined ? undefined : parseDriveLoginOrNone(b.driveLogin, current.identifier);
   let user = await updateRoleAndRights(
     id,
     {
@@ -179,7 +181,7 @@ export async function adminSetActive(admin: HubUser | null, id: string, active: 
   if (id === a.id && !active) throw selfError("Vous ne pouvez pas désactiver votre propre compte.");
   const by = actorOf(a, ip);
   let user = await setActive(id, active, by);
-  if (!driveSyncEnabled()) return { user, drive: { status: "disabled" } as DriveOutcome };
+  if (!driveSyncEnabled() || user.driveLogin === null) return { user, drive: { status: "disabled" } as DriveOutcome };
   try {
     await setDriveEnabled(user.driveLogin, active);
     user = await setDriveState(id, { driveSync: { at: new Date().toISOString() } }, by);
@@ -206,9 +208,10 @@ export async function adminResetPassword(admin: HubUser | null, id: string, body
   const by = actorOf(a, ip);
   let drive: DriveOutcome = { status: "disabled" };
   validateNewUser({ displayName: target.displayName, identifier: target.identifier, password });
-  if (driveSyncEnabled()) {
+  const targetLogin = driveLoginOf(target);
+  if (targetLogin !== null && driveSyncEnabled()) {
     try {
-      drive = { status: await ensureDriveAccount(driveLoginOf(target), target.displayName, password) };
+      drive = { status: await ensureDriveAccount(targetLogin, target.displayName, password) };
     } catch (e) {
       const error = e instanceof AppError ? e.message : "Synchronisation avec le drive impossible.";
       await setDriveState(id, { driveSync: { at: target.driveSync?.at, error } }, by);
@@ -246,6 +249,9 @@ export async function adminDriveAttach(admin: HubUser | null, body: unknown, ip?
   const target = await getUserById(id);
   if (!target) throw new AppError("not_found", "Compte introuvable.");
   if (!driveSyncEnabled()) throw new AppError("validation_failed", "La synchronisation avec le drive n'est pas configurée.");
+  if (target.driveLogin === null) {
+    throw new AppError("validation_failed", "Ce compte est réglé sans drive : décochez « Ce compte n'a pas de drive » avant de le rattacher.");
+  }
   const login = parseDriveLogin(b.driveLogin, target.identifier);
   const account = await findDriveAccount(login);
   if (!account) throw new AppError("not_found", "Aucun compte drive avec cet identifiant.");

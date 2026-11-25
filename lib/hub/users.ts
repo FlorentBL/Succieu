@@ -32,8 +32,8 @@ export type HubUser = {
   passwordHash: string;
   /** Incrémentée à chaque changement de mot de passe : invalide les sessions. */
   passwordVersion: number;
-  /** Identifiant du compte sur le drive (oCIS) ; absent = identique à `identifier`. */
-  driveLogin?: string;
+  /** Identifiant du compte sur le drive (oCIS) ; absent = identique à `identifier` ; `null` = pas de compte drive. */
+  driveLogin?: string | null;
   /** État de la dernière synchronisation avec le drive (aucun secret). */
   driveSync?: DriveSyncState;
   rights: Rights;
@@ -42,7 +42,7 @@ export type HubUser = {
 };
 
 /** Vue sans empreinte, destinée aux réponses API. */
-export type PublicUser = Omit<HubUser, "passwordHash" | "passwordVersion" | "driveLogin"> & { driveLogin: string };
+export type PublicUser = Omit<HubUser, "passwordHash" | "passwordVersion" | "driveLogin"> & { driveLogin: string | null };
 
 export type Actor = { actor: string; ip?: string };
 
@@ -62,8 +62,9 @@ export function normalizeIdentifier(raw: string): string {
 
 const IDENTIFIER_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
-/** Identifiant du compte drive : celui du hub par défaut. */
-export const driveLoginOf = (u: Pick<HubUser, "identifier" | "driveLogin">) => u.driveLogin || u.identifier;
+/** Identifiant du compte drive : celui du hub par défaut ; `null` = ce compte n'a pas de drive (aucune opération drive). */
+export const driveLoginOf = (u: Pick<HubUser, "identifier" | "driveLogin">): string | null =>
+  u.driveLogin === null ? null : u.driveLogin || u.identifier;
 
 /** Compte administrateur du drive (« admin » ou DRIVE_ADMIN_USER), casse ignorée : jamais rattachable à un compte du hub. */
 export function isDriveAdminLogin(login: string, adminUser: string | undefined = process.env.DRIVE_ADMIN_USER): boolean {
@@ -89,6 +90,11 @@ export function parseDriveLogin(raw: unknown, fallback: string): string {
     });
   }
   return v;
+}
+
+/** Comme `parseDriveLogin`, mais `null` explicite = pas de compte drive. */
+export function parseDriveLoginOrNone(raw: unknown, fallback: string): string | null {
+  return raw === null ? null : parseDriveLogin(raw, fallback);
 }
 
 export function toPublic(u: HubUser): PublicUser {
@@ -186,11 +192,11 @@ export type CreateUserInput = {
   /** Mot de passe saisi par l'administrateur ; sinon généré (renvoyé une seule fois). */
   password?: string;
   /** Identifiant du compte drive (défaut : l'identifiant). */
-  driveLogin?: string;
+  driveLogin?: string | null;
   driveSync?: DriveSyncState;
 };
 
-export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; rights: Rights; driveLogin?: string; password: string };
+export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; rights: Rights; driveLogin?: string | null; password: string };
 
 /** Valide une création sans rien écrire (le mot de passe est généré s'il est absent). */
 export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
@@ -209,7 +215,7 @@ export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
     throw new AppError("validation_failed", "Rôle invalide.", { fields: { role: "admin ou membre." } });
   }
   const rights = parseRights(input.rights);
-  const login = parseDriveLogin(input.driveLogin, identifier);
+  const login = parseDriveLoginOrNone(input.driveLogin, identifier);
   const password = input.password === undefined ? generatePassword() : validateNewPassword(input.password);
   return { identifier, displayName, role, rights, driveLogin: login === identifier ? undefined : login, password };
 }
@@ -240,7 +246,7 @@ export async function createUser(
     active: true,
     passwordHash,
     passwordVersion: 1,
-    ...(v.driveLogin ? { driveLogin: v.driveLogin } : {}),
+    ...(v.driveLogin === null ? { driveLogin: null } : v.driveLogin ? { driveLogin: v.driveLogin } : {}),
     ...(input.driveSync ? { driveSync: input.driveSync } : {}),
     rights: v.rights,
     createdAt: now,
@@ -315,7 +321,7 @@ export async function setPassword(
 /** Identifiant drive et/ou état de synchronisation (aucun secret). */
 export async function setDriveState(
   id: string,
-  patch: { driveLogin?: string; driveSync?: DriveSyncState },
+  patch: { driveLogin?: string | null; driveSync?: DriveSyncState },
   by: Actor,
   action = "user.drive-sync",
 ): Promise<PublicUser> {
@@ -326,7 +332,7 @@ export async function setDriveState(
     (u) => {
       const next: HubUser = { ...u };
       if (patch.driveLogin !== undefined) {
-        if (patch.driveLogin === u.identifier) delete next.driveLogin;
+        if (patch.driveLogin !== null && patch.driveLogin === u.identifier) delete next.driveLogin;
         else next.driveLogin = patch.driveLogin;
       }
       if (patch.driveSync !== undefined) next.driveSync = patch.driveSync;

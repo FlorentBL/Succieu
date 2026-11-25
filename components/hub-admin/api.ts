@@ -7,7 +7,8 @@ export type AdminUser = {
   displayName: string;
   role: "admin" | "membre";
   active: boolean;
-  driveLogin: string;
+  /** null = ce compte n'a pas de drive. */
+  driveLogin: string | null;
   driveSync?: { at?: string; error?: string };
   rights: Rights;
   lastLogin: string | null;

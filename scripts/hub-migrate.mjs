@@ -15,6 +15,7 @@
 //
 // comptes.json : [{ "displayName": "…", "identifier": "…"?, "role": "admin"|"membre"?, "rights": { "<module>": "read"|"write" }? }]
 //   "driveLogin" : identifiant du compte drive s'il diffère (ex. « secretariat »).
+//                  `null` = pas de compte drive (aucune opération drive pour ce compte).
 //   modules : actus-agenda, espace-bureau, salle-des-fetes, documents. Fichier réel : ne jamais le versionner.
 // Fiche : écrite UNIQUEMENT avec --apply, en 0600, hors du dépôt (refusée sinon), sans écraser un fichier existant.
 // Les mots de passe ne sont jamais affichés ni journalisés.
