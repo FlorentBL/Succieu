@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { focusRing } from "@/components/bureau/fields";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/salle-des-fetes/Modal";
 import { btnDanger, btnPrimary, btnSecondary } from "@/components/moderation/ui";
+import { CATEGORY_LABEL, HUB_CATEGORIES, categorySummary, displayCategory, groupByCategory, type DisplayCategory, type HubCategory } from "@/lib/hub/categories";
 import { ACCESS_LEVELS, HUB_MODULES, type AccessLevel } from "@/lib/hub/modules";
 import { ACTION_LABEL, call, formatDate, type AdminUser, type AuditLine, type DriveOutcome, type DriveRow, type Rights } from "./api";
 
@@ -47,6 +48,21 @@ function RightChip({ level, label, all }: { level: AccessLevel; label: string; a
       {level === "write" ? <PencilIcon /> : <EyeIcon />}
       <span aria-hidden>{text}</span>
     </span>
+  );
+}
+
+/** Pastille de catégorie : mot + icône, jamais la couleur seule. */
+function CategoryChip({ category }: { category: DisplayCategory }) {
+  const tone = category === "admin" ? "bg-moss-dark text-white" : category === "bureau" ? "bg-pre-pale text-moss-dark" : "bg-canvas text-ink ring-1 ring-inset ring-border-subtle";
+  const icon = { admin: "★", bureau: "◆", conseil: "●", secretariat: "✎" }[category];
+  return <span className={`${chip} ${tone}`}><span aria-hidden>{icon}</span>{CATEGORY_LABEL[category]}</span>;
+}
+
+function CategorySelect({ id, value, onChange, className }: { id?: string; value: HubCategory; onChange: (c: HubCategory) => void; className: string }) {
+  return (
+    <select id={id} className={className} value={value} onChange={(e) => onChange(e.target.value as HubCategory)}>
+      {HUB_CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
+    </select>
   );
 }
 
@@ -140,7 +156,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
       <section aria-labelledby="comptes" className="space-y-3">
         <h2 id="comptes" className="font-display text-2xl font-bold text-moss-dark">{loaded ? `Comptes (${users.length})` : "Chargement des comptes…"}</h2>
         <p className="text-ink-muted" data-testid="accounts-summary">
-          {users.length} compte{users.length > 1 ? "s" : ""} · {users.filter((u) => u.active).length} actif{users.filter((u) => u.active).length > 1 ? "s" : ""} · {users.filter((u) => u.role === "admin").length} administrateur{users.filter((u) => u.role === "admin").length > 1 ? "s" : ""}
+          {categorySummary(users)} · {users.filter((u) => u.active).length} actif{users.filter((u) => u.active).length > 1 ? "s" : ""}
         </p>
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-muted" data-testid="rights-legend">
           <span className="inline-flex items-center gap-1"><PencilIcon /> Écriture</span>
@@ -152,7 +168,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
             <thead className="border-b border-border-subtle bg-canvas">
               <tr>
                 <th scope="col" className={`${th} sticky left-0 z-10 bg-canvas`}>Nom</th>
-                <th scope="col" className={th}>Rôle</th>
+                <th scope="col" className={th}>Catégorie</th>
                 <th scope="col" className={th}>Actif</th>
                 {HUB_MODULES.map((m) => <th key={m.id} scope="col" className={`${th} text-center`}>{SHORT_MODULE[m.id] ?? m.label}</th>)}
                 <th scope="col" className={th}>Drive</th>
@@ -161,7 +177,12 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border-subtle">
-              {users.map((u) => {
+              {groupByCategory(users).map((g) => (
+              <Fragment key={g.category}>
+              <tr className="bg-canvas" data-testid={`group-${g.category}`}>
+                <th scope="colgroup" colSpan={HUB_MODULES.length + 6} className="px-3 py-1.5 text-left text-sm font-bold text-moss-dark">{CATEGORY_LABEL[g.category]} · {g.users.length}</th>
+              </tr>
+              {g.users.map((u) => {
                 const d = driveState(u, driveEnabled);
                 const rowBg = editing === u.id ? "bg-pre-pale" : "bg-surface";
                 return (
@@ -171,7 +192,7 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                       <span className="block text-xs font-normal text-ink-muted">{u.identifier}{u.driveLogin !== null && u.driveLogin !== u.identifier && ` · drive : ${u.driveLogin}`}</span>
                     </th>
                     <td className={td}>
-                      <span className={`${chip} ${u.role === "admin" ? "bg-moss-dark text-white" : "bg-canvas text-ink ring-1 ring-inset ring-border-subtle"}`}>{u.role === "admin" ? "Admin" : "Membre"}</span>
+                      <CategoryChip category={displayCategory(u)} />
                     </td>
                     <td className={td}>
                       <span className={`${chip} ${u.active ? "bg-pre-pale text-moss-dark" : "bg-tuile-pale text-tuile"}`}>{u.active ? "Oui" : "Non"}</span>
@@ -192,6 +213,8 @@ export function HubAdminApp({ selfId }: { selfId: string }) {
                   </tr>
                 );
               })}
+              </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -304,6 +327,7 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
   const [driveLogin, setDriveLogin] = useState("");
   const [noDrive, setNoDrive] = useState(false);
   const [role, setRole] = useState<"admin" | "membre">("membre");
+  const [category, setCategory] = useState<HubCategory>("conseil");
   const [rights, setRights] = useState<Rights>(emptyRights());
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
   const id = useId();
@@ -313,11 +337,11 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
     onError("");
     try {
       const r = await call<{ user: AdminUser; password: string; drive: DriveOutcome }>("/api/admin/users", "POST", {
-        displayName, identifier: identifier || suggestIdentifier(displayName), role, rights, ...pw,
+        displayName, identifier: identifier || suggestIdentifier(displayName), role, category, rights, ...pw,
         ...(noDrive ? { driveLogin: null } : driveLogin.trim() ? { driveLogin: driveLogin.trim() } : {}),
       });
       onCreated(r.user, r.password, r.drive);
-      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setNoDrive(false); setRole("membre"); setRights(emptyRights()); setPw({ passwordMode: "generate" }); setOpen(false);
+      setDisplayName(""); setIdentifier(""); setTouched(false); setDriveLogin(""); setNoDrive(false); setRole("membre"); setCategory("conseil"); setRights(emptyRights()); setPw({ passwordMode: "generate" }); setOpen(false);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Création impossible.");
     }
@@ -349,6 +373,9 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
         <option value="membre">Membre</option>
         <option value="admin">Administrateur (tous les droits)</option>
       </select>
+      <label htmlFor={`${id}-c`} className="mt-4 block font-semibold">Catégorie</label>
+      <CategorySelect id={`${id}-c`} className={input} value={category} onChange={setCategory} />
+      <p className="mt-1 text-sm text-ink-muted">Simple étiquette : elle ne change aucun droit. Un administrateur s&apos;affiche toujours « Admin ».</p>
       <h3 className="mt-5 font-semibold">Droits par module</h3>
       {role === "admin" ? <p className="text-ink-muted">Un administrateur a l&apos;écriture partout.</p> : <RightsGrid name="new" rights={rights} onChange={setRights} />}
       <PasswordChooser name="new" value={pw} onChange={setPw} />
@@ -363,16 +390,17 @@ function CreateForm({ driveEnabled, onCreated, onError }: { driveEnabled: boolea
 /** Panneau de modification d'un seul compte à la fois. */
 function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onReset }: {
   user: AdminUser; self: boolean; driveEnabled: boolean; onClose: () => void;
-  onSave: (p: { role?: string; rights?: Rights; driveLogin?: string | null }) => void;
+  onSave: (p: { role?: string; category?: HubCategory; rights?: Rights; driveLogin?: string | null }) => void;
   onActive: (a: boolean) => void; onReset: (c: PasswordChoice) => void;
 }) {
   const [rights, setRights] = useState<Rights>(user.rights);
   const [role, setRole] = useState(user.role);
+  const [category, setCategory] = useState<HubCategory>(user.category ?? "conseil");
   const [driveLogin, setDriveLogin] = useState(user.driveLogin ?? "");
   const [noDrive, setNoDrive] = useState(user.driveLogin === null);
   const [pw, setPw] = useState<PasswordChoice>({ passwordMode: "generate" });
   const [showPw, setShowPw] = useState(false);
-  const dirty = role !== user.role || JSON.stringify(rights) !== JSON.stringify(user.rights) || noDrive !== (user.driveLogin === null) || (!noDrive && driveLogin !== (user.driveLogin ?? ""));
+  const dirty = role !== user.role || category !== (user.category ?? "conseil") || JSON.stringify(rights) !== JSON.stringify(user.rights) || noDrive !== (user.driveLogin === null) || (!noDrive && driveLogin !== (user.driveLogin ?? ""));
   const [pending, setPending] = useState<{ msg: string; fn: () => void } | null>(null);
   const confirmThen = (msg: string, fn: () => void) => () => setPending({ msg, fn });
   return (
@@ -388,6 +416,9 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
             <option value="membre">Membre</option>
             <option value="admin">Administrateur</option>
           </select>
+        </label>
+        <label className="font-semibold">Catégorie{" "}
+          <CategorySelect className={`${input} !mt-1 sm:w-auto`} value={category} onChange={setCategory} />
         </label>
         {driveEnabled && (
           <div>
@@ -413,7 +444,7 @@ function EditPanel({ user, self, driveEnabled, onClose, onSave, onActive, onRese
       )}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={btnPrimary} disabled={!dirty}
-          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, rights, driveLogin: noDrive ? null : driveLogin }))}>
+          onClick={confirmThen(`Enregistrer les modifications de ${user.displayName} ?`, () => onSave({ role, category, rights, driveLogin: noDrive ? null : driveLogin }))}>
           Enregistrer
         </button>
         <button type="button" className={btnSecondary} aria-expanded={showPw} onClick={() => setShowPw((v) => !v)}>Réinitialiser le mot de passe</button>

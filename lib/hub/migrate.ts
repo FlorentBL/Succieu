@@ -11,14 +11,18 @@ import {
   parseRights,
   setDriveState,
   setPassword,
+  parseCategory,
   type HubRole,
 } from "./users";
+import type { HubCategory } from "./categories";
 
 /** Ligne de la liste fournie hors dépôt (jamais versionnée). */
 export type AccountSpec = {
   displayName: string;
   identifier?: string;
   role?: HubRole;
+  /** Étiquette d'affichage : bureau, conseil ou secretariat (ne fixe aucun droit). */
+  category?: HubCategory;
   rights?: unknown;
   /** Identifiant du compte drive si différent de l'identifiant (ex. « secretariat ») ; `null` = pas de compte drive. */
   driveLogin?: string | null;
@@ -28,6 +32,7 @@ export type PlannedAccount = {
   displayName: string;
   identifier: string;
   role: HubRole;
+  category?: HubCategory;
   rights: unknown;
   driveLogin: string | null;
 };
@@ -76,9 +81,10 @@ export function parseAccountSpecs(input: unknown): PlannedAccount[] {
     if (role !== "admin" && role !== "membre") {
       throw new AppError("validation_failed", `${where} : rôle invalide (admin ou membre).`);
     }
+    const category = parseCategory(s.category);
     parseRights(s.rights); // lève si module ou niveau inconnu
     const driveLogin = parseDriveLoginOrNone(s.driveLogin, identifier);
-    return { displayName, identifier, role, rights: s.rights, driveLogin };
+    return { displayName, identifier, role, ...(category ? { category } : {}), rights: s.rights, driveLogin };
   });
 }
 
@@ -167,6 +173,7 @@ export async function migrateAccounts(
                   displayName: s.displayName,
                   identifier: s.identifier,
                   role: s.role,
+                  category: s.category,
                   rights: s.rights,
                   driveLogin: s.driveLogin,
                   password,

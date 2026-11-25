@@ -1,3 +1,4 @@
+import type { HubCategory } from "@/lib/hub/categories";
 import type { AccessLevel, ModuleId } from "@/lib/hub/modules";
 
 export type Rights = Record<ModuleId, AccessLevel>;
@@ -6,6 +7,7 @@ export type AdminUser = {
   identifier: string;
   displayName: string;
   role: "admin" | "membre";
+  category?: HubCategory;
   active: boolean;
   /** null = ce compte n'a pas de drive. */
   driveLogin: string | null;

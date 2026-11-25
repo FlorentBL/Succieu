@@ -3,6 +3,7 @@ import { AppError } from "../content/errors";
 import { dataPath, readJson, updateJson } from "../content/storage";
 import { hashPassword } from "../auth/password";
 import { audit } from "./audit";
+import { HUB_CATEGORIES, isHubCategory, type HubCategory } from "./categories";
 import {
   ACCESS_LEVELS,
   allWrite,
@@ -28,6 +29,8 @@ export type HubUser = {
   identifier: string;
   displayName: string;
   role: HubRole;
+  /** Étiquette d'affichage seulement (ne fixe aucun droit) ; absente = « Conseil ». */
+  category?: HubCategory;
   active: boolean;
   passwordHash: string;
   /** Incrémentée à chaque changement de mot de passe : invalide les sessions. */
@@ -188,6 +191,7 @@ export type CreateUserInput = {
   identifier?: string;
   displayName: string;
   role?: HubRole;
+  category?: unknown;
   rights?: unknown;
   /** Mot de passe saisi par l'administrateur ; sinon généré (renvoyé une seule fois). */
   password?: string;
@@ -196,7 +200,16 @@ export type CreateUserInput = {
   driveSync?: DriveSyncState;
 };
 
-export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; rights: Rights; driveLogin?: string | null; password: string };
+export type ValidatedNewUser = { identifier: string; displayName: string; role: HubRole; category?: HubCategory; rights: Rights; driveLogin?: string | null; password: string };
+
+/** Valide une catégorie facultative (undefined/null = non précisée). */
+export function parseCategory(v: unknown): HubCategory | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (!isHubCategory(v)) {
+    throw new AppError("validation_failed", "Catégorie invalide.", { fields: { category: HUB_CATEGORIES.join(", ") + "." } });
+  }
+  return v;
+}
 
 /** Valide une création sans rien écrire (le mot de passe est généré s'il est absent). */
 export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
@@ -214,10 +227,11 @@ export function validateNewUser(input: CreateUserInput): ValidatedNewUser {
   if (role !== "admin" && role !== "membre") {
     throw new AppError("validation_failed", "Rôle invalide.", { fields: { role: "admin ou membre." } });
   }
+  const category = parseCategory(input.category);
   const rights = parseRights(input.rights);
   const login = parseDriveLoginOrNone(input.driveLogin, identifier);
   const password = input.password === undefined ? generatePassword() : validateNewPassword(input.password);
-  return { identifier, displayName, role, rights, driveLogin: login === identifier ? undefined : login, password };
+  return { identifier, displayName, role, ...(category ? { category } : {}), rights, driveLogin: login === identifier ? undefined : login, password };
 }
 
 /** Échoue si l'identifiant existe déjà (vérification avant d'écrire sur le drive). */
@@ -243,6 +257,7 @@ export async function createUser(
     identifier: v.identifier,
     displayName: v.displayName,
     role: v.role,
+    ...(v.category ? { category: v.category } : {}),
     active: true,
     passwordHash,
     passwordVersion: 1,
@@ -260,7 +275,7 @@ export async function createUser(
     }
     return [...list, user];
   });
-  await audit({ ...by, action: "user.create", detail: `${v.identifier} (${v.role})` });
+  await audit({ ...by, action: "user.create", detail: `${v.identifier} (${v.role}${v.category ? `, ${v.category}` : ""})` });
   return { user: toPublic(user), password: v.password };
 }
 
@@ -346,12 +361,13 @@ export async function setDriveState(
 /** Change rôle et/ou droits. */
 export async function updateRoleAndRights(
   id: string,
-  patch: { role?: HubRole; rights?: unknown; displayName?: string },
+  patch: { role?: HubRole; category?: unknown; rights?: unknown; displayName?: string },
   by: Actor,
 ): Promise<PublicUser> {
   if (patch.role !== undefined && patch.role !== "admin" && patch.role !== "membre") {
     throw new AppError("validation_failed", "Rôle invalide.", { fields: { role: "admin ou membre." } });
   }
+  const category = parseCategory(patch.category);
   const rights = patch.rights === undefined ? undefined : parseRights(patch.rights);
   const displayName = patch.displayName?.trim();
   if (patch.displayName !== undefined && (!displayName || displayName.length > 80)) {
@@ -364,9 +380,9 @@ export async function updateRoleAndRights(
     (u, list) => {
       const role = patch.role ?? u.role;
       if (u.role === "admin" && u.active && role !== "admin" && activeAdmins(list).length <= 1) throw lastAdminError();
-      return { ...u, role, rights: rights ?? u.rights, displayName: displayName ?? u.displayName };
+      return { ...u, role, ...(category ? { category } : {}), rights: rights ?? u.rights, displayName: displayName ?? u.displayName };
     },
-    (u) => `${u.identifier} role=${u.role} rights=${JSON.stringify(effectiveRights(u))}`,
+    (u) => `${u.identifier} role=${u.role} category=${u.category ?? "-"} rights=${JSON.stringify(effectiveRights(u))}`,
   );
   return toPublic(u);
 }

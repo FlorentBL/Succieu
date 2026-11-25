@@ -137,3 +137,21 @@ test("journal : dernière connexion, filtre par personne, lignes illisibles igno
   assert.ok(exact.some((e) => e.detail === "alice (membre)"));
   assert.equal((await adminReadAudit(admin, undefined, 1)).length, 1);
 });
+
+test("catégorie : création, modification, validation, comptes sans champ inchangés", async () => {
+  const { admin, membre } = await seed();
+  assert.equal(membre.category, undefined);
+  const r = await adminCreateUser(admin, { displayName: "Bruno Test", category: "bureau", rights: {} }, "1.1.1.1");
+  assert.equal(r.user.category, "bureau");
+  assert.equal(await code(adminCreateUser(admin, { displayName: "Carl Test", category: "chef" })), "validation_failed");
+  assert.equal(await code(adminCreateUser(admin, { displayName: "Carl Test", category: "admin" })), "validation_failed");
+  const u = await adminUpdateUser(admin, membre.id, { category: "secretariat" }, "1.1.1.1");
+  assert.equal(u.category, "secretariat");
+  assert.equal(await code(adminUpdateUser(admin, membre.id, { category: 5 })), "validation_failed");
+  // un patch sans catégorie la conserve ; les droits ne changent pas
+  const again = await adminUpdateUser(admin, membre.id, { displayName: "Alice T." });
+  assert.equal(again.category, "secretariat");
+  assert.deepEqual(again.rights, membre.rights);
+  const log = JSON.stringify(await adminReadAudit(admin));
+  assert.match(log, /category=secretariat/);
+});
