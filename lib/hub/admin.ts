@@ -118,6 +118,7 @@ export async function adminCreateUser(admin: HubUser | null, body: unknown, ip?:
     displayName: str(b.displayName) ?? "",
     identifier: str(b.identifier),
     role: b.role as "admin" | "membre" | undefined,
+    category: b.category,
     rights: b.rights,
     driveLogin: b.driveLogin === null ? null : str(b.driveLogin),
     password: chosenPassword(b),
@@ -134,6 +135,7 @@ export async function adminCreateUser(admin: HubUser | null, body: unknown, ip?:
       displayName: v.displayName,
       identifier: v.identifier,
       role: v.role,
+      category: v.category,
       rights: v.rights,
       driveLogin: v.driveLogin,
       password: v.password,
@@ -158,6 +160,7 @@ export async function adminUpdateUser(admin: HubUser | null, id: string, body: u
     id,
     {
       role: b.role as "admin" | "membre" | undefined,
+      category: b.category,
       rights: b.rights,
       displayName: typeof b.displayName === "string" ? b.displayName : undefined,
     },
